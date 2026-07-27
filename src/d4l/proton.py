@@ -33,14 +33,25 @@ KEYWORDS = {
 
 
 class Build:
-    """A Proton build on disk."""
+    """A Proton build on disk.
 
-    def __init__(self, name: str, path: Path, shared: bool):
+    Neither directory umu searches belongs to us alone. Steam's
+    compatibilitytools.d is obviously shared; umu's own store is shared too,
+    because umu is a general-purpose launcher that Heroic, Lutris and bare
+    umu-run all use. So a build is never safe to delete on the grounds that
+    "d4l isn't using it" — something else may be.
+    """
+
+    def __init__(self, name: str, path: Path, store: str):
         self.name = name
         self.path = path
-        # True when the build lives in Steam's compatibilitytools.d, where
-        # other games may be using it. We never delete those.
-        self.shared = shared
+        # "steam" or "umu" — which compatibility-tool store it lives in.
+        self.store = store
+
+    @property
+    def shared(self) -> bool:
+        """Steam's store: refused outright, since Steam games may need it."""
+        return self.store == "steam"
 
     def size(self) -> int:
         try:
@@ -52,14 +63,14 @@ class Build:
         return f"<Build {self.name} shared={self.shared}>"
 
 
-def compat_dirs() -> list[tuple[Path, bool]]:
-    """(directory, is_shared_with_steam) pairs that umu searches."""
+def compat_dirs() -> list[tuple[Path, str]]:
+    """(directory, store) pairs that umu searches, in resolution order."""
     data = _xdg("XDG_DATA_HOME", ".local/share")
     return [
-        (data / "umu" / "compatibilitytools", False),
-        (data / "Steam" / "compatibilitytools.d", True),
-        (Path.home() / ".steam" / "steam" / "compatibilitytools.d", True),
-        (Path.home() / ".steam" / "root" / "compatibilitytools.d", True),
+        (data / "umu" / "compatibilitytools", "umu"),
+        (data / "Steam" / "compatibilitytools.d", "steam"),
+        (Path.home() / ".steam" / "steam" / "compatibilitytools.d", "steam"),
+        (Path.home() / ".steam" / "root" / "compatibilitytools.d", "steam"),
     ]
 
 
@@ -70,7 +81,7 @@ def _is_proton(path: Path) -> bool:
 def installed() -> list[Build]:
     """Proton builds present on disk, newest-looking first."""
     found: dict[str, Build] = {}
-    for directory, shared in compat_dirs():
+    for directory, store in compat_dirs():
         if not directory.is_dir():
             continue
         try:
@@ -80,7 +91,7 @@ def installed() -> list[Build]:
         for entry in entries:
             # First directory wins, so umu's own copy shadows Steam's.
             if _is_proton(entry) and entry.name not in found:
-                found[entry.name] = Build(entry.name, entry, shared)
+                found[entry.name] = Build(entry.name, entry, store)
     return sorted(found.values(), key=lambda b: _sortkey(b.name), reverse=True)
 
 
@@ -180,8 +191,13 @@ def clear_caches(cfg: Config) -> int:
     return removed
 
 
-def remove(name: str, cfg: Config | None = None) -> bool:
-    """Delete an installed Proton build. Refuses shared and in-use builds."""
+def remove(name: str, cfg: Config | None = None, confirm=None) -> bool:
+    """Delete an installed Proton build. Refuses shared and in-use builds.
+
+    `confirm` is called with the Build before deletion; returning False aborts.
+    Builds in umu's store can be in use by other umu-launched games, and
+    nothing on disk tells us which — so the caller gets to ask a human.
+    """
     if cfg is not None and name == cfg["proton"]:
         log.error(f"{name} is the version currently selected — switch away first.")
         return False
@@ -198,6 +214,9 @@ def remove(name: str, cfg: Config | None = None) -> bool:
                 f"by other games — not touching it.\n  {build.path}"
             )
             return False
+        if confirm is not None and not confirm(build):
+            log.info("Left it alone.")
+            return False
         try:
             shutil.rmtree(build.path)
         except OSError as exc:
@@ -211,7 +230,12 @@ def remove(name: str, cfg: Config | None = None) -> bool:
 
 
 def prunable(cfg: Config) -> list[Build]:
-    """Builds we would be allowed to delete: ours, and not the active one."""
+    """Builds deletion is *permitted* for — not builds proven to be unused.
+
+    These live in umu's store, which other umu-launched games share, so this
+    is a candidate list for a human to look at, never a list to delete
+    automatically.
+    """
     return [b for b in installed() if not b.shared and b.name != cfg["proton"]]
 
 
@@ -241,6 +265,8 @@ def use(cfg: Config, name: str, prune: bool | None = None) -> bool:
             log.warn(f"Keeping {previous}: it lives in Steam's compatibilitytools.d "
                      "and other games may be using it.")
         else:
+            log.warn(f"Pruning {previous} from umu's shared tool directory — "
+                     "other umu-launched games could have been using it.")
             remove(previous, cfg)
 
     if not any(b.name == name for b in installed()) and name not in KEYWORDS:

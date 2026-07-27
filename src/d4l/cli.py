@@ -46,8 +46,17 @@ def cmd_battlenet(cfg, args) -> int:
 
 def cmd_stop(cfg, args) -> int:
     names = procs.LEFTOVERS + ((procs.GAME,) if args.all else ())
-    n = procs.terminate(names)
-    log.info(f"Stopped {n} process(es)." if n else "Nothing was running.")
+    # Confined to our prefix so a Battle.net running for another game (a
+    # Lutris WoW install, say) is left alone.
+    prefix = None if args.any_prefix else cfg.prefix
+    n = procs.terminate(names, prefix=prefix)
+    if n:
+        log.info(f"Stopped {n} process(es).")
+    elif args.any_prefix:
+        log.info("Nothing was running.")
+    else:
+        log.info("Nothing running for this prefix. "
+                 "Use --any-prefix to include other Wine prefixes.")
     return 0
 
 
@@ -111,7 +120,18 @@ def cmd_proton(cfg, args) -> int:
         return 0 if proton.use(cfg, args.name, prune=prune) else 1
 
     if args.proton_action == "remove":
-        return 0 if proton.remove(args.name, cfg) else 1
+        def confirm(build):
+            if args.yes:
+                return True
+            if not sys.stdin.isatty():
+                log.error("Refusing to delete without confirmation; pass --yes.")
+                return False
+            print(f"\n  {build.name}  ({_human(build.size())})\n  {build.path}\n"
+                  "  This is umu's shared tool directory — other umu-launched\n"
+                  "  games (Heroic, Lutris, bare umu-run) may also use this build.")
+            return input("  Delete it? [y/N] ").strip().lower() in ("y", "yes")
+
+        return 0 if proton.remove(args.name, cfg, confirm=confirm) else 1
 
     # list (default)
     active = cfg["proton"]
@@ -176,6 +196,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     stop = sub.add_parser("stop", help="close Battle.net and its helpers")
     stop.add_argument("--all", action="store_true", help="also close the game")
+    stop.add_argument("--any-prefix", action="store_true",
+                      help="include Battle.net running in other Wine prefixes")
 
     st = sub.add_parser("status", help="what is installed and running")
     st.add_argument("--json", action="store_true")
@@ -199,6 +221,8 @@ def build_parser() -> argparse.ArgumentParser:
                      help="keep it, overriding prune_old_proton")
     prr = pra.add_parser("remove", help="delete an installed version")
     prr.add_argument("name")
+    prr.add_argument("-y", "--yes", action="store_true",
+                     help="skip the confirmation prompt")
 
     lg = sub.add_parser("logs", help="show the d4l log")
     lg.add_argument("-f", "--follow", action="store_true")
@@ -225,7 +249,8 @@ def main(argv=None) -> int:
     for attr, default in (("no_wait", False), ("all", False), ("json", False),
                           ("set", None), ("follow", False), ("refresh", False),
                           ("proton_action", "list"), ("name", None),
-                          ("prune", False), ("keep", False)):
+                          ("prune", False), ("keep", False), ("any_prefix", False),
+                          ("yes", False)):
         if not hasattr(args, attr):
             setattr(args, attr, default)
 

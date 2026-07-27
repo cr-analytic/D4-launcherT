@@ -51,7 +51,7 @@ Prefer a system-wide package? `makepkg -si` uses the included `PKGBUILD`.
 | `d4l install-game` | Open Battle.net's Diablo IV install flow |
 | `d4l battlenet` | Just open the Battle.net client |
 | `d4l proton` | List, switch or remove Proton versions |
-| `d4l stop` | Close Battle.net and its leftovers (`--all` also closes the game) |
+| `d4l stop` | Close Battle.net and its leftovers *in this prefix* (`--all` also closes the game) |
 | `d4l status` | What's installed and running (`--json` for scripts) |
 | `d4l doctor` | Check drivers, Vulkan, disk space, install state |
 | `d4l config` | Show settings; `--set key=value` to change them |
@@ -87,6 +87,17 @@ launch, using its own checksum-verified path. Switching always clears the DXVK
 and VKD3D shader caches, so they rebuild against the new Proton; expect the
 first session afterwards to stutter a little while they warm up.
 
+### Switching only ever affects Diablo IV
+
+Choosing a version writes `proton` in d4l's own config, which becomes
+`PROTONPATH` only when d4l launches the game. Steam, Lutris and Heroic read
+their own settings and are completely unaffected; a download adds a new
+directory and changes nothing that already exists. **There is no way for
+switching versions here to alter what another game runs.**
+
+Deleting is the only operation that could reach beyond D4, which is why it's
+hedged as described below.
+
 ### Why the old version isn't deleted automatically
 
 You can have that — `d4l proton use <name> --prune`, or
@@ -97,14 +108,18 @@ of the box for two reasons:
   regressed, which means the version you want next is very often the one you
   just left. Deleting it turns a two-second switch into another download.
   Keeping two or three builds costs ~1–2 GB against a ~90 GB game.
-- **One of the two directories is shared with Steam.** umu looks in its own
+- **Neither tool directory belongs to d4l alone.** umu looks in its own
   `~/.local/share/umu/compatibilitytools` *and* in
-  `~/.local/share/Steam/compatibilitytools.d`. Builds in the Steam one may be
-  in use by your other games, so d4l never deletes from there — `--prune` and
-  `d4l proton remove` both refuse, and say why.
+  `~/.local/share/Steam/compatibilitytools.d`. The Steam one obviously
+  belongs to Steam — d4l refuses to delete from it outright. But umu's own
+  store is shared too, because Heroic, Lutris and bare `umu-run` all use umu,
+  and nothing on disk records which build another game depends on.
 
-Removal also refuses to touch the version currently selected. To see what
-could be freed: **Unused Proton builds…** in the launcher menu.
+So `d4l proton remove` asks before deleting (`--yes` to skip, required when
+not on a terminal), and `--prune` warns as it goes. Removal also refuses the
+version currently selected. **Unused Proton builds…** in the launcher menu
+reports what *may* be removable and its size, and deliberately doesn't delete
+anything itself.
 
 Switching Proton while the game or Battle.net is running is blocked — the
 prefix is in use, and changing it underneath a running process is asking for
@@ -178,8 +193,14 @@ immediate.
 match `umu-run …/Battle.net.exe` — the launcher's own invocation — and the
 tool would think the client was running when it wasn't.
 
-**Nothing is left behind.** Battle.net's agent and helper processes outlive the
-game and keep the prefix busy. `d4l play` reaps them once you quit.
+**Nothing is left behind — and nothing else is touched.** Battle.net's agent
+and helper processes outlive the game and keep the prefix busy, so `d4l play`
+reaps them once you quit. Every process it signals must belong to *this*
+prefix, checked by reading `WINEPREFIX`/`STEAM_COMPAT_DATA_PATH` out of
+`/proc/<pid>/environ`. If you have Battle.net open for WoW in a separate
+Lutris prefix, quitting D4 leaves it running. Anything d4l cannot positively
+attribute to its own prefix is left alone; `d4l stop --any-prefix` overrides
+that if something is genuinely stuck.
 
 Your login lives in the Wine prefix, the same way it would on Windows, so it
 survives reboots and updates. Nothing about your account is stored by this

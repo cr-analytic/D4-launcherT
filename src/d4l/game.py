@@ -17,7 +17,7 @@ def play(cfg: Config, verbose: bool = False, wait: bool = True) -> int:
         log.error("Battle.net isn't installed yet. Run `d4l setup` first.")
         return 1
 
-    if procs.is_running(procs.GAME):
+    if procs.is_running(procs.GAME, cfg.prefix):
         log.info("Diablo IV is already running.")
         return 0
 
@@ -34,14 +34,14 @@ def play(cfg: Config, verbose: bool = False, wait: bool = True) -> int:
 
     log.info("Playing. This window can stay open; it cleans up on exit.")
     try:
-        procs.wait_while(procs.GAME)
+        procs.wait_while(procs.GAME, prefix=cfg.prefix)
     except KeyboardInterrupt:
         log.warn("Interrupted — leaving the game running.")
         return 0
 
     log.info("Diablo IV exited.")
     if cfg["close_battlenet_after_exit"]:
-        killed = procs.terminate()
+        killed = procs.terminate(prefix=cfg.prefix)
         if killed:
             log.info("Closed Battle.net.")
     return 0
@@ -56,8 +56,8 @@ def status(cfg: Config) -> dict:
         "battlenet_installed": cfg.bnet_exe.exists(),
         "game_installed": exe is not None,
         "game_path": str(exe) if exe else None,
-        "battlenet_running": procs.is_running(procs.BNET),
-        "game_running": procs.is_running(procs.GAME),
+        "battlenet_running": procs.is_running(procs.BNET, cfg.prefix),
+        "game_running": procs.is_running(procs.GAME, cfg.prefix),
     }
 
 

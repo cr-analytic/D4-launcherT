@@ -139,7 +139,8 @@ def main(cfg: cfgmod.Config) -> int:
             chosen = self.proton_values[index]
             if chosen == cfg["proton"]:
                 return
-            if procs.is_running(procs.GAME) or procs.is_running(procs.BNET):
+            if (procs.is_running(procs.GAME, cfg.prefix)
+                    or procs.is_running(procs.BNET, cfg.prefix)):
                 self.say("Close the game and Battle.net before switching Proton.")
                 # Revert on the next main-loop pass: replacing the model from
                 # inside its own notify::selected emission crashes GTK.
@@ -186,7 +187,8 @@ def main(cfg: cfgmod.Config) -> int:
                 ("installgame", lambda: battlenet.install_game(cfg)),
                 ("refreshproton", self._refresh_protons),
                 ("cleanproton", self._cleanup_protons),
-                ("stop", lambda: procs.terminate(procs.LEFTOVERS + (procs.GAME,))),
+                ("stop", lambda: procs.terminate(procs.LEFTOVERS + (procs.GAME,),
+                                                prefix=cfg.prefix)),
                 ("doctor", self._doctor),
             ):
                 action = Gio.SimpleAction.new(name, None)

@@ -126,7 +126,7 @@ def start_client(cfg: Config, verbose: bool = False, timeout: float = 180.0) -> 
 
     Returns True once the client is ready to accept --exec commands.
     """
-    if procs.is_running(procs.BNET):
+    if procs.is_running(procs.BNET, cfg.prefix):
         log.info("Battle.net is already running.")
         return True
 
@@ -139,7 +139,7 @@ def start_client(cfg: Config, verbose: bool = False, timeout: float = 180.0) -> 
     runtime.run(cfg, cfg.bnet_exe, detach=True, verbose=verbose,
                 log=cfg.game_dir / "battlenet.log")
 
-    if not procs.wait_for(procs.BNET, timeout=timeout):
+    if not procs.wait_for(procs.BNET, timeout=timeout, prefix=cfg.prefix):
         log.error("Battle.net did not start within "
                   f"{int(timeout)}s. See `d4l logs`.")
         return False
@@ -148,7 +148,7 @@ def start_client(cfg: Config, verbose: bool = False, timeout: float = 180.0) -> 
     # UI is Chromium-based and only becomes interactive once its helper
     # renderer processes are up. Waiting for those is what makes the
     # subsequent `--exec launch` reliable.
-    if procs.wait_for(procs.BNET_HELPER, timeout=90):
+    if procs.wait_for(procs.BNET_HELPER, timeout=90, prefix=cfg.prefix):
         log.info("Battle.net is up.")
     else:
         log.warn("Battle.net UI helpers not detected; continuing anyway.")
@@ -177,7 +177,8 @@ def launch_game(cfg: Config, product: str = D4_PRODUCT, verbose: bool = False,
     for attempt in range(1, attempts + 1):
         log.info(f"Launching Diablo IV (attempt {attempt}/{attempts})…")
         exec_command(cfg, f"launch {product}", verbose=verbose)
-        if procs.wait_for(procs.GAME, timeout=base_wait * attempt):
+        if procs.wait_for(procs.GAME, timeout=base_wait * attempt,
+                          prefix=cfg.prefix):
             log.info("Diablo IV is running.")
             return True
         if attempt < attempts:
