@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Diablo IV
+GenericName=Action RPG
+Comment=Launch Diablo IV
+Exec=@BIN@ play
+Icon=d4-launcher
+Terminal=false
+Categories=Game;ActionGame;RolePlaying;
+Keywords=diablo;d4;blizzard;battlenet;
+StartupNotify=true
+StartupWMClass=diablo iv.exe
+PrefersNonDefaultGPU=true
+X-KDE-RunOnDiscreteGpu=true

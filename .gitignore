@@ -1,0 +1,9 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+pkg/
+src/*.pkg.tar.*
+*.tar.gz
+.venv/

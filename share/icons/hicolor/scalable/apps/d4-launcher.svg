@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Original minimalist mark: an inverted blade over an ember disc. -->
+  <defs>
+    <linearGradient id="ember" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f0a03c"/>
+      <stop offset="55%" stop-color="#c0341a"/>
+      <stop offset="100%" stop-color="#5e0f0c"/>
+    </linearGradient>
+    <linearGradient id="steel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f6f2ec"/>
+      <stop offset="100%" stop-color="#9aa0a6"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="128" height="128" rx="28" fill="#16120f"/>
+  <circle cx="64" cy="62" r="40" fill="url(#ember)" opacity="0.9"/>
+  <circle cx="64" cy="62" r="40" fill="none" stroke="#2a1a12" stroke-width="3"/>
+
+  <!-- blade -->
+  <path d="M64 20 L73 44 L64 108 L55 44 Z" fill="url(#steel)"/>
+  <path d="M64 20 L64 108 L55 44 Z" fill="#000" opacity="0.18"/>
+
+  <!-- crossguard -->
+  <path d="M38 44 Q64 36 90 44 Q64 52 38 44 Z" fill="#e8dcc4"/>
+  <circle cx="64" cy="44" r="5" fill="#c0341a" stroke="#3a1008" stroke-width="1.5"/>
+</svg>

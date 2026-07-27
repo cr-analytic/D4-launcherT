@@ -1,0 +1,21 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=D4 Launcher
+GenericName=Diablo IV Launcher
+Comment=Set up and launch Diablo IV without Lutris
+Exec=@BIN@ gui
+Icon=d4-launcher
+Terminal=false
+Categories=Game;ActionGame;
+Keywords=diablo;d4;blizzard;battlenet;launcher;
+StartupNotify=true
+Actions=Play;Battlenet;
+
+[Desktop Action Play]
+Name=Play Diablo IV
+Exec=@BIN@ play
+
+[Desktop Action Battlenet]
+Name=Open Battle.net
+Exec=@BIN@ battlenet
