@@ -50,6 +50,7 @@ Prefer a system-wide package? `makepkg -si` uses the included `PKGBUILD`.
 | `d4l setup` | First-run: prefix + Battle.net install |
 | `d4l install-game` | Open Battle.net's Diablo IV install flow |
 | `d4l battlenet` | Just open the Battle.net client |
+| `d4l proton` | List, switch or remove Proton versions |
 | `d4l stop` | Close Battle.net and its leftovers (`--all` also closes the game) |
 | `d4l status` | What's installed and running (`--json` for scripts) |
 | `d4l doctor` | Check drivers, Vulkan, disk space, install state |
@@ -68,6 +69,55 @@ Steam wrap it too would nest two Proton environments.
 
 ---
 
+## Proton versions
+
+A bad Proton version is the usual reason Battle.net or D4 breaks, so switching
+is a first-class control rather than a settings page — there's a dropdown in
+the launcher window, and:
+
+```bash
+d4l proton list                     # installed, aliases, and downloadable
+d4l proton use GE-Proton11-3        # switch (clears shader caches)
+d4l proton use GE-Proton            # alias: always track the newest build
+d4l proton remove GE-Proton11-1     # reclaim the disk space
+```
+
+Picking a version you don't have is fine — umu downloads it on the next
+launch, using its own checksum-verified path. Switching always clears the DXVK
+and VKD3D shader caches, so they rebuild against the new Proton; expect the
+first session afterwards to stutter a little while they warm up.
+
+### Why the old version isn't deleted automatically
+
+You can have that — `d4l proton use <name> --prune`, or
+`d4l config --set prune_old_proton=true` to make it the default. It's off out
+of the box for two reasons:
+
+- **Rolling back is the whole point.** You switch versions *because* a build
+  regressed, which means the version you want next is very often the one you
+  just left. Deleting it turns a two-second switch into another download.
+  Keeping two or three builds costs ~1–2 GB against a ~90 GB game.
+- **One of the two directories is shared with Steam.** umu looks in its own
+  `~/.local/share/umu/compatibilitytools` *and* in
+  `~/.local/share/Steam/compatibilitytools.d`. Builds in the Steam one may be
+  in use by your other games, so d4l never deletes from there — `--prune` and
+  `d4l proton remove` both refuse, and say why.
+
+Removal also refuses to touch the version currently selected. To see what
+could be freed: **Unused Proton builds…** in the launcher menu.
+
+Switching Proton while the game or Battle.net is running is blocked — the
+prefix is in use, and changing it underneath a running process is asking for
+trouble. Close things first.
+
+> Downgrading across a major version (11 → 10) reuses a prefix that the newer
+> Proton may have upgraded. It usually works; if it doesn't, the clean fix is
+> to move `<game_dir>/prefix` aside and re-run `d4l setup`. That means logging
+> in again, but not re-downloading the game if you point the install at the
+> same folder.
+
+---
+
 ## Configuration
 
 `d4l config` prints everything; `~/.config/d4-launcher/config.json` holds it.
@@ -80,6 +130,7 @@ d4l config --set mangohud=true                  # performance overlay
 d4l config --set raytracing=true                # VKD3D_CONFIG=dxr11
 d4l config --set nvidia_dlss=false              # off by default on non-NVIDIA
 d4l config --set close_battlenet_after_exit=false
+d4l config --set prune_old_proton=true          # delete the old Proton on switch
 d4l config --set 'env={"WINEDLLOVERRIDES":"foo=n,b"}'   # escape hatch
 ```
 
@@ -160,9 +211,10 @@ usual culprit; d4l disables it, but if you re-enabled it, turn it back off with
 
 **A launch went wrong and things are stuck** — `d4l stop --all`.
 
-**Try a different Proton** — `d4l config --set proton=/path/to/GE-ProtonX-Y`.
-Battle.net compatibility regressions are common and usually fixed in a later
-GE-Proton; `proton=GE-Proton` (the default) always fetches the newest.
+**Try a different Proton** — the dropdown in the launcher, or
+`d4l proton use GE-Proton11-3`. Battle.net regressions are common and usually
+fixed in a later GE-Proton; the `GE-Proton` alias (the default) always tracks
+the newest. See [Proton versions](#proton-versions).
 
 Verbose Proton/umu logging: `d4l -v play`.
 

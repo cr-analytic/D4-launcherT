@@ -7,7 +7,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from . import game, runtime
+from . import game, proton, runtime
 from .config import Config
 
 OK, BAD, MEH = "\033[32m✓\033[0m", "\033[31m✗\033[0m", "\033[33m•\033[0m"
@@ -67,6 +67,18 @@ def run(cfg: Config) -> int:
 
     line(None if not cfg.prefix.is_dir() else True, "Wine prefix",
          str(cfg.prefix) if cfg.prefix.is_dir() else "not created yet (run: d4l setup)")
+
+    active = cfg["proton"]
+    builds = proton.installed()
+    if active in proton.KEYWORDS:
+        detail = f"{active} (alias — umu resolves to the newest)"
+    elif any(b.name == active for b in builds):
+        detail = f"{active} (installed)"
+    else:
+        detail = f"{active} — not downloaded yet, umu fetches it on next launch"
+    line(True, "Proton", detail)
+    if builds:
+        line(True, "Proton builds on disk", ", ".join(b.name for b in builds[:4]))
 
     st = game.status(cfg)
     line(None if not st["battlenet_installed"] else True, "Battle.net",

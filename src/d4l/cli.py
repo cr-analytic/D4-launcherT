@@ -7,7 +7,7 @@ import json
 import subprocess
 import sys
 
-from . import battlenet, config as cfgmod, doctor, game, log, procs, runtime
+from . import battlenet, config as cfgmod, doctor, game, log, procs, proton, runtime
 
 DESC = "Launch Diablo IV on Linux without going through Lutris and Battle.net by hand."
 
@@ -97,6 +97,49 @@ def cmd_config(cfg, args) -> int:
     return 0
 
 
+def _human(size: int) -> str:
+    for unit in ("B", "KiB", "MiB"):
+        if size < 1024:
+            return f"{size:.0f} {unit}"
+        size /= 1024
+    return f"{size:.1f} GiB"
+
+
+def cmd_proton(cfg, args) -> int:
+    if args.proton_action == "use":
+        prune = True if args.prune else (False if args.keep else None)
+        return 0 if proton.use(cfg, args.name, prune=prune) else 1
+
+    if args.proton_action == "remove":
+        return 0 if proton.remove(args.name, cfg) else 1
+
+    # list (default)
+    active = cfg["proton"]
+    on_disk = {b.name: b for b in proton.installed()}
+
+    print("\n  Selected:", active, "\n")
+    print("  Installed:")
+    if on_disk:
+        for build in on_disk.values():
+            mark = "*" if build.name == active else " "
+            where = "Steam (shared)" if build.shared else "umu"
+            print(f"   {mark} {build.name:<22} {_human(build.size()):>9}  {where}")
+    else:
+        print("     (none yet — umu downloads one on the first launch)")
+
+    print("\n  Aliases:")
+    for key, desc in proton.KEYWORDS.items():
+        mark = "*" if key == active else " "
+        print(f"   {mark} {key:<22} {desc}")
+
+    extra = [t for t in proton.available(refresh=args.refresh) if t not in on_disk]
+    if extra:
+        print("\n  Available to download:")
+        print("     " + ", ".join(extra[:10]))
+    print()
+    return 0
+
+
 def cmd_logs(cfg, args) -> int:
     if not cfgmod.LOG_FILE.exists():
         log.warn("No log file yet.")
@@ -143,6 +186,20 @@ def build_parser() -> argparse.ArgumentParser:
     cf.add_argument("--set", action="append", metavar="KEY=VALUE",
                     help="change a setting (repeatable)")
 
+    pr = sub.add_parser("proton", help="list, switch or remove Proton versions")
+    pra = pr.add_subparsers(dest="proton_action")
+    prl = pra.add_parser("list", help="show installed and available versions")
+    prl.add_argument("--refresh", action="store_true",
+                     help="re-fetch the GE-Proton release list")
+    pru = pra.add_parser("use", help="switch version (clears shader caches)")
+    pru.add_argument("name", help="e.g. GE-Proton11-3, or the alias GE-Proton")
+    pru.add_argument("--prune", action="store_true",
+                     help="delete the version being switched away from")
+    pru.add_argument("--keep", action="store_true",
+                     help="keep it, overriding prune_old_proton")
+    prr = pra.add_parser("remove", help="delete an installed version")
+    prr.add_argument("name")
+
     lg = sub.add_parser("logs", help="show the d4l log")
     lg.add_argument("-f", "--follow", action="store_true")
 
@@ -154,6 +211,7 @@ HANDLERS = {
     "setup": cmd_setup, "play": cmd_play, "install-game": cmd_install_game,
     "battlenet": cmd_battlenet, "stop": cmd_stop, "status": cmd_status,
     "doctor": cmd_doctor, "config": cmd_config, "logs": cmd_logs, "gui": cmd_gui,
+    "proton": cmd_proton,
 }
 
 
@@ -165,7 +223,9 @@ def main(argv=None) -> int:
     command = args.command or ("play" if cfg.bnet_exe.exists() else "setup")
     handler = HANDLERS[command]
     for attr, default in (("no_wait", False), ("all", False), ("json", False),
-                          ("set", None), ("follow", False)):
+                          ("set", None), ("follow", False), ("refresh", False),
+                          ("proton_action", "list"), ("name", None),
+                          ("prune", False), ("keep", False)):
         if not hasattr(args, attr):
             setattr(args, attr, default)
 

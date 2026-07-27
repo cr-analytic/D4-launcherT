@@ -37,6 +37,11 @@ DEFAULTS = {
     "proton": "GE-Proton",
     "gameid": "umu-default",
     "store": "none",
+    # Delete the previous Proton build when switching versions. Off by
+    # default: the usual reason to switch is a regression, and keeping the
+    # last known-good build makes rolling back instant instead of a
+    # re-download. See README.
+    "prune_old_proton": False,
     # Battle.net behaviour
     "minimize_battlenet_on_launch": True,
     "disable_bnet_hardware_accel": True,
