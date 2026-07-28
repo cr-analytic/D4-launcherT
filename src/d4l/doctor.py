@@ -65,8 +65,11 @@ def run(cfg: Config) -> int:
     # Diablo IV is roughly 90 GB installed, plus room for patches.
     line(free > 100, "Disk space", f"{free:.0f} GiB free at {cfg.game_dir}")
 
-    line(None if not cfg.prefix.is_dir() else True, "Wine prefix",
-         str(cfg.prefix) if cfg.prefix.is_dir() else "not created yet (run: d4l setup)")
+    if cfg.prefix.is_dir():
+        nested = " (Proton pfx/)" if cfg.wine_prefix != cfg.prefix else ""
+        line(True, "Wine prefix", f"{cfg.wine_prefix}{nested}")
+    else:
+        line(None, "Wine prefix", "not created yet (run: d4l setup)")
 
     active = cfg["proton"]
     builds = proton.installed()

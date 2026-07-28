@@ -71,8 +71,23 @@ class Config(dict):
         return self.game_dir / "prefix"
 
     @property
+    def wine_prefix(self) -> Path:
+        """The real Wine prefix, which is not always `prefix` itself.
+
+        What we hand umu as WINEPREFIX becomes Proton's compat-data
+        directory, and Proton then builds the actual prefix in `pfx/`
+        underneath it — so drive_c lives at `<prefix>/pfx/drive_c`. Plain
+        Wine puts it directly in `<prefix>/drive_c`. Detect rather than
+        assume, so both layouts work.
+        """
+        nested = self.prefix / "pfx"
+        if (nested / "drive_c").is_dir():
+            return nested
+        return self.prefix
+
+    @property
     def drive_c(self) -> Path:
-        return self.prefix / "drive_c"
+        return self.wine_prefix / "drive_c"
 
     @property
     def installer(self) -> Path:
@@ -93,16 +108,20 @@ class Config(dict):
         return users / "steamuser" / "AppData" / "Roaming" / "Battle.net" / "Battle.net.config"
 
     def find_game_exe(self) -> Path | None:
-        """Locate Diablo IV.exe; the user may have installed it anywhere."""
-        default = self.drive_c / "Program Files (x86)" / "Diablo IV" / "Diablo IV.exe"
+        """Locate Diablo IV.exe; the user may have installed it anywhere.
+
+        Depth-bounded on purpose: a bare rglob here would walk the whole
+        ~90 GB install on every status check.
+        """
+        drive_c = self.drive_c
+        if not drive_c.is_dir():
+            return None
+        default = drive_c / "Program Files (x86)" / "Diablo IV" / "Diablo IV.exe"
         if default.exists():
             return default
-        if not self.drive_c.is_dir():
-            return None
-        for hit in self.drive_c.glob("*/*/Diablo IV/Diablo IV.exe"):
-            return hit
-        for hit in self.drive_c.rglob("Diablo IV.exe"):
-            return hit
+        for depth in ("*", "*/*", "*/*/*"):
+            for hit in drive_c.glob(f"{depth}/Diablo IV/Diablo IV.exe"):
+                return hit
         return None
 
     def save(self) -> None:
