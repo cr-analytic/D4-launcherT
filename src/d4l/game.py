@@ -32,7 +32,7 @@ def play(cfg: Config, verbose: bool = False, wait: bool = True) -> int:
     if not wait:
         return 0
 
-    log.info("Playing. This window can stay open; it cleans up on exit.")
+    log.info("Playing. Ctrl-C here is safe — it won't stop the game.")
     # Watch the game with whichever scope actually sees it (see launch_game).
     scope = cfg.prefix if procs.is_running(procs.GAME, cfg.prefix) else None
     try:
@@ -46,6 +46,8 @@ def play(cfg: Config, verbose: bool = False, wait: bool = True) -> int:
         killed = procs.terminate(prefix=cfg.prefix)
         if killed:
             log.info("Closed Battle.net.")
+    elif procs.is_running(procs.BNET, cfg.prefix):
+        log.info("Battle.net is still open — close it yourself, or `d4l stop`.")
     return 0
 
 

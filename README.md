@@ -146,7 +146,8 @@ d4l config --set gamemode=true                  # wrap in gamemoderun
 d4l config --set mangohud=true                  # performance overlay
 d4l config --set raytracing=true                # VKD3D_CONFIG=dxr11
 d4l config --set nvidia_dlss=false              # off by default on non-NVIDIA
-d4l config --set close_battlenet_after_exit=false
+d4l config --set close_battlenet_after_exit=true    # close the client when you quit
+d4l config --set battlenet_on_game_launch=minimize  # keep|minimize|close|"" (leave alone)
 d4l config --set prune_old_proton=true          # delete the old Proton on switch
 d4l config --set 'env={"WINEDLLOVERRIDES":"foo=n,b"}'   # escape hatch
 ```
@@ -179,7 +180,14 @@ Useful defaults it sets for you:
 - Battle.net's hardware acceleration is switched off — Blizzard's own
   troubleshooting step, and its Chromium-based UI is far more stable that way
   under Wine.
-- Battle.net is told to get out of the way when the game starts.
+- The Battle.net client is left running and left to you: d4l doesn't close it
+  when the game exits, and never restarts one you closed. `d4l stop` closes it
+  when you want that, and `close_battlenet_after_exit=true` makes it automatic.
+
+Setting `battlenet_on_game_launch=close` is possible but not advised: the
+client exits *during* the launch, so there's nothing left for a follow-up
+command to reach, and a retry ends up starting a fresh Battle.net rather than
+talking to the running one.
 
 ---
 

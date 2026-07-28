@@ -12,6 +12,14 @@ from .config import BNET_INSTALLER_URL, D4_PRODUCT, Config
 
 UA = "Mozilla/5.0 (X11; Linux x86_64) d4-launcher"
 
+# Battle.net.config's GameLaunchWindowBehavior values. Anything not listed
+# here (including "") means "don't touch the user's setting".
+#
+# "close" is offered but not recommended: the client exits during the launch,
+# so there is nothing left for a follow-up --exec to talk to, and a retry then
+# starts a fresh Battle.net rather than reaching the running one.
+WINDOW_BEHAVIOUR = {"keep": "0", "minimize": "1", "minimise": "1", "close": "2"}
+
 
 # --------------------------------------------------------------------------
 # Installation
@@ -97,9 +105,9 @@ def tune_config(cfg: Config) -> None:
 
     before = json.dumps(data, sort_keys=True)
 
-    if cfg["minimize_battlenet_on_launch"]:
-        # 0 = keep open, 1 = minimise, 2 = close entirely when a game starts.
-        client["GameLaunchWindowBehavior"] = "2" if cfg["close_battlenet_after_exit"] else "1"
+    behaviour = WINDOW_BEHAVIOUR.get(str(cfg["battlenet_on_game_launch"]).lower())
+    if behaviour is not None:
+        client["GameLaunchWindowBehavior"] = behaviour
     if cfg["disable_bnet_hardware_accel"]:
         # Blizzard's own troubleshooting step; the CEF-based UI renders far
         # more reliably under Wine without it.
@@ -169,7 +177,7 @@ def exec_command(cfg: Config, command: str, verbose: bool = False) -> None:
 
 
 def launch_game(cfg: Config, product: str = D4_PRODUCT, verbose: bool = False,
-                attempts: int = 3, base_wait: float = 15.0) -> bool:
+                attempts: int = 3, base_wait: float = 25.0) -> bool:
     """Ask Battle.net to launch the game, retrying if it doesn't take.
 
     A single `--exec="launch Fen"` is famously unreliable: if the client was
@@ -183,6 +191,18 @@ def launch_game(cfg: Config, product: str = D4_PRODUCT, verbose: bool = False,
     can take a while.
     """
     for attempt in range(1, attempts + 1):
+        # Only the first command may start a client. `--exec` against a client
+        # that is gone does not forward anything — it launches a whole new
+        # Battle.net. Retrying blindly therefore resurrects a client the user
+        # just closed, and closing it again simply triggers the next retry.
+        if attempt > 1 and not procs.is_running(procs.BNET, cfg.prefix):
+            log.error(
+                "Battle.net is no longer running, so there is nothing to send "
+                "the launch command to — stopping instead of starting it "
+                "again. Run `d4l play` when you're ready."
+            )
+            return False
+
         log.info("Launching Diablo IV…" if attempt == 1 else
                  f"Retrying the launch ({attempt}/{attempts})…")
         exec_command(cfg, f"launch {product}", verbose=verbose)

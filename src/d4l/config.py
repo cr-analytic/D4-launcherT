@@ -42,10 +42,16 @@ DEFAULTS = {
     # last known-good build makes rolling back instant instead of a
     # re-download. See README.
     "prune_old_proton": False,
-    # Battle.net behaviour
-    "minimize_battlenet_on_launch": True,
+    # What Battle.net does with its own window when a game starts:
+    # "keep", "minimize", "close", or "" to leave the client's own setting
+    # untouched. Defaults to keeping it open — the client is the user's to
+    # manage, and one that exits mid-launch takes the target of our --exec
+    # commands with it.
+    "battlenet_on_game_launch": "keep",
+    # Leave the client running after the game exits; closing it is the
+    # user's call, not ours.
+    "close_battlenet_after_exit": False,
     "disable_bnet_hardware_accel": True,
-    "close_battlenet_after_exit": True,
     # Wrappers
     "gamemode": False,
     "mangohud": False,
