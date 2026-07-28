@@ -70,6 +70,39 @@ def cmd_status(cfg, args) -> int:
     return 0
 
 
+def cmd_ps(cfg, args) -> int:
+    """Show Wine processes and whether we attribute them to our prefix."""
+    from pathlib import Path
+
+    rows = []
+    for entry in Path("/proc").iterdir():
+        if not entry.name.isdigit():
+            continue
+        pid = int(entry.name)
+        try:
+            comm = (entry / "comm").read_text().strip()
+        except OSError:
+            continue
+        env = procs._environ(pid)
+        if env is None:
+            continue
+        where = env.get("WINEPREFIX") or env.get("STEAM_COMPAT_DATA_PATH")
+        if not where and ".exe" not in comm:
+            continue
+        rows.append((pid, comm, procs.in_prefix(pid, cfg.prefix), where or "?"))
+
+    if not rows:
+        print("\n  No Wine processes found.\n")
+        return 0
+
+    print(f"\n  our prefix: {cfg.prefix}\n")
+    print(f"  {'PID':>7}  {'COMM':<17} {'OURS':<5} PREFIX")
+    for pid, comm, ours, where in sorted(rows, key=lambda r: r[1]):
+        print(f"  {pid:>7}  {comm:<17} {'yes' if ours else 'no ':<5} {where}")
+    print()
+    return 0
+
+
 def cmd_doctor(cfg, args) -> int:
     return doctor.run(cfg)
 
@@ -203,6 +236,7 @@ def build_parser() -> argparse.ArgumentParser:
     st.add_argument("--json", action="store_true")
 
     sub.add_parser("doctor", help="check this machine can run the game")
+    sub.add_parser("ps", help="show Wine processes and prefix attribution")
 
     cf = sub.add_parser("config", help="show or change settings")
     cf.add_argument("--set", action="append", metavar="KEY=VALUE",
@@ -235,7 +269,7 @@ HANDLERS = {
     "setup": cmd_setup, "play": cmd_play, "install-game": cmd_install_game,
     "battlenet": cmd_battlenet, "stop": cmd_stop, "status": cmd_status,
     "doctor": cmd_doctor, "config": cmd_config, "logs": cmd_logs, "gui": cmd_gui,
-    "proton": cmd_proton,
+    "proton": cmd_proton, "ps": cmd_ps,
 }
 
 

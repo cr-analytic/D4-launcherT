@@ -33,8 +33,10 @@ def play(cfg: Config, verbose: bool = False, wait: bool = True) -> int:
         return 0
 
     log.info("Playing. This window can stay open; it cleans up on exit.")
+    # Watch the game with whichever scope actually sees it (see launch_game).
+    scope = cfg.prefix if procs.is_running(procs.GAME, cfg.prefix) else None
     try:
-        procs.wait_while(procs.GAME, prefix=cfg.prefix)
+        procs.wait_while(procs.GAME, prefix=scope)
     except KeyboardInterrupt:
         log.warn("Interrupted — leaving the game running.")
         return 0

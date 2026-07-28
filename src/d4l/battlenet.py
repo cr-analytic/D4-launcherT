@@ -156,8 +156,16 @@ def start_client(cfg: Config, verbose: bool = False, timeout: float = 180.0) -> 
 
 
 def exec_command(cfg: Config, command: str, verbose: bool = False) -> None:
-    """Send a command to the running Battle.net client."""
-    runtime.run(cfg, cfg.bnet_exe, [f'--exec={command}'], verbose=verbose)
+    """Send a command to the running Battle.net client.
+
+    Detached on purpose. `Battle.net.exe --exec=...` hands its message to the
+    already-running client and exits immediately, but umu-run does not: with
+    PROTON_VERB=waitforexitandrun it stays alive until the whole Wine session
+    goes idle, which won't happen while the client is up. Waiting on it would
+    block until the user quit Battle.net entirely.
+    """
+    runtime.run(cfg, cfg.bnet_exe, [f'--exec={command}'], verbose=verbose,
+                detach=True, log=cfg.game_dir / "battlenet.log")
 
 
 def launch_game(cfg: Config, product: str = D4_PRODUCT, verbose: bool = False,
@@ -175,12 +183,23 @@ def launch_game(cfg: Config, product: str = D4_PRODUCT, verbose: bool = False,
     can take a while.
     """
     for attempt in range(1, attempts + 1):
-        log.info(f"Launching Diablo IV (attempt {attempt}/{attempts})…")
+        log.info("Launching Diablo IV…" if attempt == 1 else
+                 f"Retrying the launch ({attempt}/{attempts})…")
         exec_command(cfg, f"launch {product}", verbose=verbose)
+
         if procs.wait_for(procs.GAME, timeout=base_wait * attempt,
                           prefix=cfg.prefix):
             log.info("Diablo IV is running.")
             return True
+
+        # The game may be up but not attributable to our prefix — Proton runs
+        # it inside a container and the environment isn't always visible.
+        # Detecting it by name is still better than relaunching on top of it.
+        if procs.is_running(procs.GAME):
+            log.warn("Diablo IV is running, but couldn't be tied to this "
+                     "prefix — skipping automatic cleanup when it exits.")
+            return True
+
         if attempt < attempts:
             log.warn("Game hasn't appeared yet; re-sending the launch command.")
 
