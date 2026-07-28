@@ -7,7 +7,8 @@ import json
 import subprocess
 import sys
 
-from . import battlenet, config as cfgmod, doctor, game, log, procs, proton, runtime
+from . import (battlenet, config as cfgmod, doctor, game, log, move, procs,
+               proton, runtime)
 
 DESC = "Launch Diablo IV on Linux without going through Lutris and Battle.net by hand."
 
@@ -68,6 +69,10 @@ def cmd_status(cfg, args) -> int:
     for key, value in st.items():
         print(f"  {key:20} {value}")
     return 0
+
+
+def cmd_move(cfg, args) -> int:
+    return move.relocate(cfg, args.destination)
 
 
 def cmd_ps(cfg, args) -> int:
@@ -238,6 +243,9 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("doctor", help="check this machine can run the game")
     sub.add_parser("ps", help="show Wine processes and prefix attribution")
 
+    mv = sub.add_parser("move", help="move the install (game, prefix, login) elsewhere")
+    mv.add_argument("destination", help="new game directory, e.g. /mnt/games/diablo4")
+
     cf = sub.add_parser("config", help="show or change settings")
     cf.add_argument("--set", action="append", metavar="KEY=VALUE",
                     help="change a setting (repeatable)")
@@ -269,7 +277,7 @@ HANDLERS = {
     "setup": cmd_setup, "play": cmd_play, "install-game": cmd_install_game,
     "battlenet": cmd_battlenet, "stop": cmd_stop, "status": cmd_status,
     "doctor": cmd_doctor, "config": cmd_config, "logs": cmd_logs, "gui": cmd_gui,
-    "proton": cmd_proton, "ps": cmd_ps,
+    "proton": cmd_proton, "ps": cmd_ps, "move": cmd_move,
 }
 
 

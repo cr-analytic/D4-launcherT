@@ -53,7 +53,9 @@ Prefer a system-wide package? `makepkg -si` uses the included `PKGBUILD`.
 | `d4l proton` | List, switch or remove Proton versions |
 | `d4l stop` | Close Battle.net and its leftovers *in this prefix* (`--all` also closes the game) |
 | `d4l status` | What's installed and running (`--json` for scripts) |
+| `d4l move <dir>` | Move the install (game, prefix, login) to another disk |
 | `d4l doctor` | Check drivers, Vulkan, disk space, install state |
+| `d4l ps` | Wine processes and which prefix they belong to |
 | `d4l config` | Show settings; `--set key=value` to change them |
 | `d4l logs` | Show the log (`-f` to follow) |
 
@@ -149,8 +151,25 @@ d4l config --set prune_old_proton=true          # delete the old Proton on switc
 d4l config --set 'env={"WINEDLLOVERRIDES":"foo=n,b"}'   # escape hatch
 ```
 
-Move the game directory by editing `game_dir` **and** moving the folder
-yourself — the launcher does not relocate an existing install.
+To put the install on another disk, use `d4l move` rather than editing
+`game_dir` by hand — the setting only says where to *look*, so changing it on
+its own just points the launcher at an empty directory (and a subsequent
+`d4l setup` will cheerfully build a second install there).
+
+```bash
+d4l move /mnt/games/diablo4
+```
+
+This carries the game, the Wine prefix and your Battle.net login across in one
+piece — no re-download, no logging in again. On the same filesystem it's an
+instant rename. Across disks it copies, verifies Battle.net is present at the
+new path, and **leaves the original alone** so a failed 90 GB move can't cost
+you the install; it prints the `rm -rf` to run once `d4l play` works from the
+new location.
+
+It refuses to run if the game or Battle.net is open, if the destination exists
+and isn't empty, or if the target drive is too small, and it puts `game_dir`
+back if the moved copy doesn't check out.
 
 Useful defaults it sets for you:
 
