@@ -81,8 +81,13 @@ class Config(dict):
         assume, so both layouts work.
         """
         nested = self.prefix / "pfx"
-        if (nested / "drive_c").is_dir():
-            return nested
+        try:
+            # umu points pfx at the prefix itself (pfx -> .); only treat it as
+            # nested when it is genuinely a different directory.
+            if (nested / "drive_c").is_dir() and nested.resolve() != self.prefix.resolve():
+                return nested
+        except OSError:
+            pass
         return self.prefix
 
     @property
