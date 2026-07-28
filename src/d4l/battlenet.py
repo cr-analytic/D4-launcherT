@@ -166,14 +166,18 @@ def start_client(cfg: Config, verbose: bool = False, timeout: float = 180.0) -> 
 def exec_command(cfg: Config, command: str, verbose: bool = False) -> None:
     """Send a command to the running Battle.net client.
 
-    Detached on purpose. `Battle.net.exe --exec=...` hands its message to the
-    already-running client and exits immediately, but umu-run does not: with
-    PROTON_VERB=waitforexitandrun it stays alive until the whole Wine session
-    goes idle, which won't happen while the client is up. Waiting on it would
-    block until the user quit Battle.net entirely.
+    PROTON_VERB=run is essential here. The default verb,
+    "waitforexitandrun", makes Proton wait for the prefix's existing
+    processes to exit before starting the executable — so the command never
+    reaches the running client at all. It sits queued until the user closes
+    Battle.net, and *then* runs `Battle.net.exe`, which with no client left
+    to talk to simply starts a new one. That is a relaunch loop: close the
+    client, the queued command fires, the client comes back.
+
+    Detached as well, so a slow or stuck invocation can't block the launch.
     """
     runtime.run(cfg, cfg.bnet_exe, [f'--exec={command}'], verbose=verbose,
-                detach=True, log=cfg.game_dir / "battlenet.log")
+                detach=True, verb="run", log=cfg.game_dir / "battlenet.log")
 
 
 def launch_game(cfg: Config, product: str = D4_PRODUCT, verbose: bool = False,

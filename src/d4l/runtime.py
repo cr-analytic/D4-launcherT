@@ -89,14 +89,22 @@ def wrappers(cfg: cfgmod.Config) -> list[str]:
 
 
 def run(cfg: cfgmod.Config, exe, args=(), *, wrap=False, verbose=False,
-        detach=False, log=None):
+        detach=False, log=None, verb=None):
     """Run a Windows executable inside the prefix via umu.
 
     detach=True returns immediately with the Popen handle; otherwise the call
     blocks until the process exits and returns its CompletedProcess.
+
+    `verb` overrides PROTON_VERB. The default, "waitforexitandrun", means what
+    it says: Proton waits for the prefix's existing processes to finish before
+    starting anything. That is right for launching into a quiet prefix and
+    quite wrong for talking to a program already running in it — use "run" for
+    that, or the command sits queued until the user closes everything.
     """
     cmd = (wrappers(cfg) if wrap else []) + [umu_run(), str(exe), *map(str, args)]
     env = build_env(cfg, verbose=verbose)
+    if verb:
+        env["PROTON_VERB"] = verb
 
     cfg.game_dir.mkdir(parents=True, exist_ok=True)
 
