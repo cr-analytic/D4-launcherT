@@ -94,22 +94,54 @@ def is_running_anywhere(name: str) -> bool:
     return bool(pids_named(name))
 
 
+def _argv0_basename(pid: int) -> str | None:
+    """The leaf of a process's argv[0], handling Windows-style paths."""
+    try:
+        raw = Path(f"/proc/{pid}/cmdline").read_bytes()
+    except OSError:
+        return None
+    first = raw.split(b"\0")[0]
+    if not first:
+        return None
+    text = first.decode("utf-8", "replace").replace("\\", "/")
+    return text.rsplit("/", 1)[-1]
+
+
+def _matches(pid: int, name: str) -> bool:
+    """Whether this process is the named Windows executable.
+
+    Two independent signals, because neither is reliable alone:
+
+    comm is what Wine usually sets to the executable name, but the kernel
+    truncates it to 15 characters and Proton does not always set it — which
+    left the launcher unable to see a Battle.net that was plainly running.
+
+    argv[0] carries the full path the program was invoked with. Crucially we
+    compare only its leaf and only argv[0], so `umu-run …/Battle.net.exe` —
+    whose *later* arguments name the exe — is not mistaken for the exe
+    itself. That distinction is the whole reason this isn't a cmdline grep.
+    """
+    try:
+        if (Path(f"/proc/{pid}") / "comm").read_text().strip() == _comm(name):
+            return True
+    except (OSError, ValueError):
+        return False
+    argv0 = _argv0_basename(pid)
+    return bool(argv0) and argv0.lower() == name.lower()
+
+
 def pids_named(name: str, prefix=None) -> list[int]:
-    """PIDs whose comm matches the (truncated) executable name.
+    """PIDs of the named Windows executable.
 
     With `prefix`, only processes belonging to that Wine prefix are returned.
     """
-    want = _comm(name)
     found = []
     for entry in Path("/proc").iterdir():
         if not entry.name.isdigit():
             continue
-        try:
-            if (entry / "comm").read_text().strip() != want:
-                continue
-        except (OSError, ValueError):
-            continue  # process exited from under us
         pid = int(entry.name)
+        if not _matches(pid, name):
+            continue
         if prefix is None or in_prefix(pid, prefix):
             found.append(pid)
     return found

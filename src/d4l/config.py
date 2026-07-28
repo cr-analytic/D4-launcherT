@@ -52,6 +52,9 @@ DEFAULTS = {
     # user's call, not ours.
     "close_battlenet_after_exit": False,
     "disable_bnet_hardware_accel": True,
+    # Close the launcher window once Battle.net is up. The client doesn't
+    # need us after that — nothing is supervising it.
+    "close_gui_after_launch": False,
     # Wrappers
     "gamemode": False,
     "mangohud": False,

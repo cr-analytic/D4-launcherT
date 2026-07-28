@@ -18,6 +18,7 @@ CSS = b"""
 .d4-play     { font-size: 17px; font-weight: 700; padding: 14px 0; }
 .d4-status   { font-size: 12px; opacity: 0.7; }
 .d4-proton   { font-size: 11px; opacity: 0.6; letter-spacing: 1px; }
+.d4-check    { font-size: 12px; opacity: 0.75; }
 """
 
 
@@ -74,6 +75,15 @@ def main(cfg: cfgmod.Config) -> int:
                 ellipsize=Pango.EllipsizeMode.END, margin_top=2,
             )
             body.append(self.status)
+
+            self.autoclose = Gtk.CheckButton(
+                label="Close this window once Battle.net is up",
+                active=bool(cfg["close_gui_after_launch"]),
+                halign=Gtk.Align.CENTER, margin_top=10,
+                css_classes=["d4-check"],
+            )
+            self.autoclose.connect("toggled", self.on_autoclose)
+            body.append(self.autoclose)
 
             body.append(self._proton_picker())
 
@@ -175,7 +185,9 @@ def main(cfg: cfgmod.Config) -> int:
         # -- chrome ----------------------------------------------------
         def _menu(self):
             menu = Gio.Menu()
-            menu.append("Open Battle.net", "win.battlenet")
+            # Auto-launching the game is available but never automatic: the
+            # button brings up Battle.net and stops.
+            menu.append("Launch Diablo IV too", "win.playgame")
             menu.append("Install / repair game", "win.installgame")
             menu.append("Refresh Proton list", "win.refreshproton")
             menu.append("Unused Proton builds…", "win.cleanproton")
@@ -183,7 +195,7 @@ def main(cfg: cfgmod.Config) -> int:
             menu.append("Run diagnostics", "win.doctor")
 
             for name, fn in (
-                ("battlenet", lambda: battlenet.start_client(cfg)),
+                ("playgame", lambda: game.play(cfg, wait=False)),
                 ("installgame", lambda: battlenet.install_game(cfg)),
                 ("refreshproton", self._refresh_protons),
                 ("cleanproton", self._cleanup_protons),
@@ -207,13 +219,13 @@ def main(cfg: cfgmod.Config) -> int:
                 return True
             st = game.status(cfg)
             if st["game_running"]:
-                label, sensitive = "Running", False
+                label, sensitive = "Diablo IV running", False
+            elif st["battlenet_running"]:
+                label, sensitive = "Battle.net running", False
             elif not st["battlenet_installed"]:
                 label, sensitive = "Set up", True
-            elif not st["game_installed"]:
-                label, sensitive = "Install game", True
             else:
-                label, sensitive = "Play", True
+                label, sensitive = "Launch Battle.net", True
             self.play.set_label(label)
             self.play.set_sensitive(sensitive)
             if not st["umu"] and not self.status.get_label():
@@ -252,13 +264,32 @@ def main(cfg: cfgmod.Config) -> int:
 
         # -- actions ---------------------------------------------------
         def on_play(self, _button):
-            st = game.status(cfg)
-            if not st["battlenet_installed"]:
+            """Bring up Battle.net and stop there.
+
+            Starting the game is left to the user, in Battle.net, where the
+            patch state and the Play button already are. The launcher's job
+            is getting the client running under Proton, not second-guessing
+            what happens next.
+            """
+            if not game.status(cfg)["battlenet_installed"]:
                 self.run_bg(lambda: battlenet.install(cfg))
-            elif not st["game_installed"]:
-                self.run_bg(lambda: battlenet.install_game(cfg))
             else:
-                self.run_bg(lambda: game.play(cfg))
+                self.run_bg(lambda: self._open_battlenet())
+
+        def on_autoclose(self, button):
+            cfg["close_gui_after_launch"] = button.get_active()
+            cfg.save()
+
+        def _open_battlenet(self):
+            if not battlenet.start_client(cfg):
+                return
+            if cfg["close_gui_after_launch"]:
+                self.say("Battle.net is up — closing this window.")
+                # Nothing here supervises the client, so quitting is safe.
+                GLib.timeout_add(1200, self.get_application().quit)
+            else:
+                self.say("Battle.net is up — launch Diablo IV from there. "
+                         "You can close this window; it won't stop anything.")
 
     def on_activate(app):
         provider = Gtk.CssProvider()
