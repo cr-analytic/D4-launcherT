@@ -1,4 +1,4 @@
-"""`d4l doctor` — check the machine can actually run this."""
+"""`bnl doctor` — check the machine can actually run this."""
 
 from __future__ import annotations
 
@@ -48,7 +48,7 @@ def run(cfg: Config) -> int:
             problems += 1
         print(f" {mark} {label}" + (f" — {detail}" if detail else ""))
 
-    print("\nd4l doctor\n")
+    print("\nbnl doctor\n")
 
     umu = shutil.which("umu-run")
     line(bool(umu), "umu-launcher", umu or "missing: sudo pacman -S umu-launcher")
@@ -69,7 +69,7 @@ def run(cfg: Config) -> int:
         nested = " (Proton pfx/)" if cfg.wine_prefix != cfg.prefix else ""
         line(True, "Wine prefix", f"{cfg.wine_prefix}{nested}")
     else:
-        line(None, "Wine prefix", "not created yet (run: d4l setup)")
+        line(None, "Wine prefix", "not created yet (run: bnl setup)")
 
     active = cfg["proton"]
     builds = proton.installed()
@@ -85,9 +85,9 @@ def run(cfg: Config) -> int:
 
     st = game.status(cfg)
     line(None if not st["battlenet_installed"] else True, "Battle.net",
-         "installed" if st["battlenet_installed"] else "not installed (run: d4l setup)")
+         "installed" if st["battlenet_installed"] else "not installed (run: bnl setup)")
     line(None if not st["game_installed"] else True, "Diablo IV",
-         st["game_path"] or "not installed (run: d4l install-game)")
+         st["game_path"] or "not installed (run: bnl install-game)")
 
     if os.environ.get("XDG_SESSION_TYPE"):
         print(f"\n   session: {os.environ['XDG_SESSION_TYPE']}   proton: {cfg['proton']}")

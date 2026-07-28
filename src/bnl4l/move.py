@@ -91,7 +91,7 @@ def relocate(cfg: Config, destination: str) -> int:
         if procs.is_running_anywhere(name):
             raise RuntimeError_(
                 "Diablo IV or Battle.net is still running. Close it first:\n"
-                "  d4l stop --all"
+                "  bnl stop --all"
             )
 
     if dest.exists() and any(dest.iterdir()):
@@ -146,7 +146,7 @@ def relocate(cfg: Config, destination: str) -> int:
         log.info("Nothing left at the old path.")
     else:
         print()
-        log.info("The original is still on disk. Once `d4l play` works from")
+        log.info("The original is still on disk. Once `bnl play` works from")
         log.info("the new location, reclaim the space with:")
         log.info(f"  rm -rf '{src}'")
     return 0

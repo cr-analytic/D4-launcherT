@@ -14,7 +14,7 @@ def play(cfg: Config, verbose: bool = False, wait: bool = True) -> int:
     the first login.
     """
     if not cfg.bnet_exe.exists():
-        log.error("Battle.net isn't installed yet. Run `d4l setup` first.")
+        log.error("Battle.net isn't installed yet. Run `bnl setup` first.")
         return 1
 
     if procs.is_running_anywhere(procs.GAME):
@@ -47,7 +47,7 @@ def play(cfg: Config, verbose: bool = False, wait: bool = True) -> int:
         if killed:
             log.info("Closed Battle.net.")
     elif procs.is_running_anywhere(procs.BNET):
-        log.info("Battle.net is still open — close it yourself, or `d4l stop`.")
+        log.info("Battle.net is still open — close it yourself, or `bnl stop`.")
     return 0
 
 

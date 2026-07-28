@@ -1,9 +1,9 @@
-# Maintainer: d4-launcher contributors
+# Maintainer: Battle.net Launcher4Linux contributors
 # Build a system-wide package:  makepkg -si
-pkgname=d4-launcher
+pkgname=battlenet-launcher4linux
 pkgver=1.0.0
 pkgrel=1
-pkgdesc="Minimal one-click Diablo IV launcher for Linux (umu/Proton, no Lutris)"
+pkgdesc="Minimal Battle.net launcher for Linux (umu/Proton, no Lutris)"
 arch=('any')
 url="https://github.com/cr-analytic/d4-launcherT"
 license=('MIT')
@@ -12,7 +12,7 @@ optdepends=(
     'python-gobject: graphical launcher'
     'libadwaita: graphical launcher'
     'gtk4: graphical launcher'
-    'vulkan-tools: `d4l doctor` Vulkan check'
+    'vulkan-tools: `bnl doctor` Vulkan check'
     'gamemode: optional gamemoderun wrapper'
     'mangohud: optional performance overlay'
 )

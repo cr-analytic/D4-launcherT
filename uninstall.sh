@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Remove d4-launcher. Leaves the game and prefix alone unless asked.
+# Remove Battle.net Launcher4Linux. Leaves the game and prefix alone unless asked.
 set -euo pipefail
 
 PREFIX="${PREFIX:-$HOME/.local}"
-LIB_DIR="$PREFIX/share/d4-launcher"
-CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/d4-launcher"
-STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/d4-launcher"
+LIB_DIR="$PREFIX/share/battlenet-launcher4linux"
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/battlenet-launcher4linux"
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/battlenet-launcher4linux"
 
 info() { printf '\033[32m==>\033[0m %s\n' "$*"; }
 
@@ -22,10 +22,13 @@ fi
 
 info "Removing the launcher"
 rm -rf "$LIB_DIR" "$STATE_DIR"
-rm -f "$PREFIX/bin/d4l" \
+rm -f "$PREFIX/bin/bnl" "$PREFIX/bin/d4l" \
+      "$PREFIX/share/applications/battlenet-launcher4linux.desktop" \
       "$PREFIX/share/applications/d4-launcher.desktop" \
       "$PREFIX/share/applications/diablo-iv.desktop" \
+      "$PREFIX/share/icons/hicolor/scalable/apps/battlenet-launcher4linux.svg" \
       "$PREFIX/share/icons/hicolor/scalable/apps/d4-launcher.svg"
+rm -rf "$PREFIX/share/d4-launcher"
 
 command -v update-desktop-database >/dev/null && \
     update-desktop-database -q "$PREFIX/share/applications" || true

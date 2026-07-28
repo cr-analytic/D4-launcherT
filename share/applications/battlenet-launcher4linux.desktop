@@ -1,0 +1,21 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Battle.net Launcher4Linux
+GenericName=Battle.net Launcher
+Comment=Run the Battle.net client on Linux without Lutris
+Exec=@BIN@ gui
+Icon=battlenet-launcher4linux
+Terminal=false
+Categories=Game;
+Keywords=battlenet;blizzard;diablo;d4;launcher;proton;wine;
+StartupNotify=true
+Actions=Battlenet;Play;
+
+[Desktop Action Battlenet]
+Name=Open Battle.net
+Exec=@BIN@ battlenet
+
+[Desktop Action Play]
+Name=Launch Diablo IV
+Exec=@BIN@ play

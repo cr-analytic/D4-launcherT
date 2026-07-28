@@ -6,7 +6,13 @@ import json
 import os
 from pathlib import Path
 
-APP = "d4-launcher"
+APP = "battlenet-launcher4linux"
+APP_NAME = "Battle.net Launcher4Linux"
+
+# The project was called d4-launcher before it grew up into a Battle.net
+# launcher. Settings are migrated from the old location on first run so a
+# rename never silently loses someone's game_dir.
+LEGACY_APP = "d4-launcher"
 
 # Battle.net's internal product code for Diablo IV (codename "Fenris").
 D4_PRODUCT = "Fen"
@@ -24,7 +30,22 @@ def _xdg(var: str, default: str) -> Path:
 CONFIG_DIR = _xdg("XDG_CONFIG_HOME", ".config") / APP
 STATE_DIR = _xdg("XDG_STATE_HOME", ".local/state") / APP
 CONFIG_FILE = CONFIG_DIR / "config.json"
-LOG_FILE = STATE_DIR / "d4l.log"
+LOG_FILE = STATE_DIR / "bnl4l.log"
+
+LEGACY_CONFIG_FILE = _xdg("XDG_CONFIG_HOME", ".config") / LEGACY_APP / "config.json"
+
+
+def distro() -> str:
+    """The running distribution's name, for the window subtitle."""
+    try:
+        with open("/etc/os-release") as fh:
+            fields = dict(
+                line.rstrip("\n").split("=", 1) for line in fh if "=" in line
+            )
+    except OSError:
+        return "LINUX"
+    name = (fields.get("NAME") or fields.get("PRETTY_NAME") or "Linux")
+    return name.strip().strip('"').upper()
 
 DEFAULTS = {
     "version": 1,
@@ -147,12 +168,25 @@ class Config(dict):
 
 def load() -> Config:
     cfg = Config(DEFAULTS)
-    if CONFIG_FILE.exists():
+
+    # Prefer the current location; fall back to the pre-rename one so an
+    # upgrade keeps the user's settings — losing game_dir would point the
+    # launcher at an empty directory and look exactly like a broken install.
+    source = CONFIG_FILE if CONFIG_FILE.exists() else LEGACY_CONFIG_FILE
+    migrating = source is LEGACY_CONFIG_FILE and source.exists()
+
+    if source.exists():
         try:
-            user = json.loads(CONFIG_FILE.read_text())
+            user = json.loads(source.read_text())
             if isinstance(user, dict):
                 cfg.update(user)
         except (json.JSONDecodeError, OSError):
             # A corrupt config should never block launching the game.
+            migrating = False
+
+    if migrating:
+        try:
+            cfg.save()
+        except OSError:
             pass
     return cfg

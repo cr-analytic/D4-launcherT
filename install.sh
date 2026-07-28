@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# One-click installer for d4-launcher on CachyOS / Arch.
+# One-click installer for Battle.net Launcher4Linux on CachyOS / Arch.
 set -euo pipefail
 
 SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 PREFIX="${PREFIX:-$HOME/.local}"
-LIB_DIR="$PREFIX/share/d4-launcher"
+LIB_DIR="$PREFIX/share/battlenet-launcher4linux"
 BIN_DIR="$PREFIX/bin"
-BIN="$BIN_DIR/d4l"
+BIN="$BIN_DIR/bnl"
 APPS_DIR="$PREFIX/share/applications"
 ICON_DIR="$PREFIX/share/icons/hicolor/scalable/apps"
 
@@ -54,25 +54,35 @@ else
 fi
 
 # --- install --------------------------------------------------------------
-info "Installing d4-launcher into $LIB_DIR"
+info "Installing Battle.net Launcher4Linux into $LIB_DIR"
 rm -rf "$LIB_DIR"
 mkdir -p "$LIB_DIR" "$BIN_DIR" "$APPS_DIR" "$ICON_DIR"
-cp -r "$SRC_DIR/src/d4l" "$LIB_DIR/"
+cp -r "$SRC_DIR/src/bnl4l" "$LIB_DIR/"
 find "$LIB_DIR" -name '__pycache__' -type d -prune -exec rm -rf {} + 2>/dev/null || true
 
 cat > "$BIN" <<EOF
 #!/usr/bin/env bash
 export PYTHONPATH="$LIB_DIR\${PYTHONPATH:+:\$PYTHONPATH}"
-exec python3 -m d4l "\$@"
+exec python3 -m bnl4l "\$@"
 EOF
 chmod +x "$BIN"
 
-install -m644 "$SRC_DIR/share/icons/hicolor/scalable/apps/d4-launcher.svg" "$ICON_DIR/"
+install -m644 "$SRC_DIR/share/icons/hicolor/scalable/apps/battlenet-launcher4linux.svg" "$ICON_DIR/"
 
-for entry in d4-launcher diablo-iv; do
+for entry in battlenet-launcher4linux diablo-iv; do
     sed "s|@BIN@|$BIN|g" "$SRC_DIR/share/applications/$entry.desktop" \
         > "$APPS_DIR/$entry.desktop"
 done
+
+# Clear out the pre-rename install so the menu doesn't show both.
+OLD_LIB="$PREFIX/share/d4-launcher"
+if [[ -d "$OLD_LIB" || -f "$BIN_DIR/d4l" ]]; then
+    info "Removing the old d4-launcher install (settings are kept)"
+    rm -rf "$OLD_LIB"
+    rm -f "$BIN_DIR/d4l" \
+          "$APPS_DIR/d4-launcher.desktop" \
+          "$ICON_DIR/d4-launcher.svg"
+fi
 
 command -v update-desktop-database >/dev/null && \
     update-desktop-database -q "$APPS_DIR" || true
@@ -83,7 +93,7 @@ info "Installed."
 
 case ":$PATH:" in
     *":$BIN_DIR:"*) ;;
-    *) warn "$BIN_DIR is not on your PATH — run d4l as $BIN, or add it:"
+    *) warn "$BIN_DIR is not on your PATH — run bnl as $BIN, or add it:"
        warn "  echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.bashrc" ;;
 esac
 
@@ -98,13 +108,14 @@ if [[ ${reply:-Y} =~ ^[Yy]?$ ]]; then
     "$BIN" setup
 else
     echo
-    echo "  Run it later with:  d4l setup"
+    echo "  Run it later with:  bnl setup"
 fi
 
 echo
 bold "Done."
-echo "  d4l play      launch Diablo IV"
-echo "  d4l gui       graphical launcher"
-echo "  d4l doctor    check your system"
+echo "  bnl            open the launcher window"
+echo "  bnl battlenet  start Battle.net from a terminal"
+echo "  bnl play       start Battle.net and launch Diablo IV"
+echo "  bnl doctor     check your system"
 echo
-echo "  'Diablo IV' and 'D4 Launcher' are now in your application menu."
+echo "  'Battle.net Launcher4Linux' and 'Diablo IV' are now in your application menu."

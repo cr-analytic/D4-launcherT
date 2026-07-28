@@ -78,13 +78,13 @@ def wrappers(cfg: cfgmod.Config) -> list[str]:
         if shutil.which("gamemoderun"):
             cmd.append("gamemoderun")
         else:
-            print("d4l: gamemode enabled but gamemoderun not found; skipping",
+            print("bnl: gamemode enabled but gamemoderun not found; skipping",
                   file=sys.stderr)
     if cfg["mangohud"]:
         if shutil.which("mangohud"):
             cmd.append("mangohud")
         else:
-            print("d4l: mangohud enabled but not found; skipping", file=sys.stderr)
+            print("bnl: mangohud enabled but not found; skipping", file=sys.stderr)
     return cmd
 
 

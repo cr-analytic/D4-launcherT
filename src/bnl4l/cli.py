@@ -1,4 +1,4 @@
-"""Command line interface for d4l."""
+"""Command line interface for Battle.net Launcher4Linux."""
 
 from __future__ import annotations
 
@@ -22,12 +22,12 @@ def cmd_setup(cfg, args) -> int:
     battlenet.tune_config(cfg)
 
     if cfg.find_game_exe():
-        log.info("Diablo IV is already installed. You're done — run `d4l play`.")
+        log.info("Diablo IV is already installed. You're done — run `bnl play`.")
         return 0
 
     print()
-    log.info("Next: install Diablo IV through Battle.net (`d4l install-game`),")
-    log.info("then launch it any time with `d4l play` or the desktop shortcut.")
+    log.info("Next: install Diablo IV through Battle.net (`bnl install-game`),")
+    log.info("then launch it any time with `bnl play` or the desktop shortcut.")
     return 0
 
 
@@ -218,7 +218,7 @@ def cmd_gui(cfg, args) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="d4l", description=DESC)
+    p = argparse.ArgumentParser(prog="bnl", description=DESC)
     p.add_argument("-v", "--verbose", action="store_true",
                    help="verbose umu/Proton logging")
     sub = p.add_subparsers(dest="command")
@@ -285,8 +285,9 @@ def main(argv=None) -> int:
     args = build_parser().parse_args(argv)
     cfg = cfgmod.load()
 
-    # Bare `d4l` should do the obvious thing rather than print usage.
-    command = args.command or ("play" if cfg.bnet_exe.exists() else "setup")
+    # Bare `bnl` opens the launcher, or runs setup if there's nothing to
+    # launch yet — more useful than printing usage.
+    command = args.command or ("gui" if cfg.bnet_exe.exists() else "setup")
     handler = HANDLERS[command]
     for attr, default in (("no_wait", False), ("all", False), ("json", False),
                           ("set", None), ("follow", False), ("refresh", False),

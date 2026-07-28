@@ -74,7 +74,7 @@ def install(cfg: Config, verbose: bool = False) -> None:
         raise runtime.RuntimeError_(
             "Battle.net setup finished but Battle.net.exe was not found at\n"
             f"  {cfg.bnet_exe}\n"
-            "Re-run `d4l setup` or check the log with `d4l logs`."
+            "Re-run `bnl setup` or check the log with `bnl logs`."
         )
     log.info("Battle.net installed.")
 
@@ -142,12 +142,12 @@ def start_client(cfg: Config, verbose: bool = False, timeout: float = 180.0) -> 
     # top of it is how duplicate Battle.net windows appear.
     if procs.is_running_anywhere(procs.BNET):
         log.warn("Battle.net is running but couldn't be tied to this prefix — "
-                 "using it rather than starting another. `d4l ps` shows why.")
+                 "using it rather than starting another. `bnl ps` shows why.")
         return True
 
     if not cfg.bnet_exe.exists():
         raise runtime.RuntimeError_(
-            "Battle.net is not installed yet. Run `d4l setup` first."
+            "Battle.net is not installed yet. Run `bnl setup` first."
         )
 
     log.info("Starting Battle.net…")
@@ -157,10 +157,10 @@ def start_client(cfg: Config, verbose: bool = False, timeout: float = 180.0) -> 
     if not procs.wait_for(procs.BNET, timeout=timeout, prefix=cfg.prefix):
         if procs.is_running_anywhere(procs.BNET):
             log.warn("Battle.net started but couldn't be tied to this prefix; "
-                     "continuing. `d4l ps` shows why.")
+                     "continuing. `bnl ps` shows why.")
             return True
         log.error("Battle.net did not start within "
-                  f"{int(timeout)}s. See `d4l logs`.")
+                  f"{int(timeout)}s. See `bnl logs`.")
         return False
 
     # Battle.net.exe existing is not the same as the client being ready: the
@@ -215,7 +215,7 @@ def launch_game(cfg: Config, product: str = D4_PRODUCT, verbose: bool = False,
             log.error(
                 "Battle.net is no longer running, so there is nothing to send "
                 "the launch command to — stopping instead of starting it "
-                "again. Run `d4l play` when you're ready."
+                "again. Run `bnl play` when you're ready."
             )
             return False
 

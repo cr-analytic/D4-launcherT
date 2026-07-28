@@ -21,12 +21,16 @@ CSS = b"""
 .d4-check    { font-size: 12px; opacity: 0.75; }
 """
 
+# Seconds between Battle.net coming up and the window closing itself. Shown
+# in the checkbox label, so keep the two in step.
+AUTOCLOSE_DELAY = 3
+
 
 def _missing(exc: Exception) -> int:
     print(
-        f"d4l: the graphical launcher needs GTK4 and libadwaita ({exc}).\n"
+        f"bnl: the graphical launcher needs GTK4 and libadwaita ({exc}).\n"
         "     Install them with:  sudo pacman -S python-gobject libadwaita gtk4\n"
-        "     Or just use the command line:  d4l play",
+        "     Or just use the command line:  bnl play",
         file=sys.stderr,
     )
     return 1
@@ -44,7 +48,7 @@ def main(cfg: cfgmod.Config) -> int:
 
     class Window(Adw.ApplicationWindow):
         def __init__(self, app):
-            super().__init__(application=app, title="Diablo IV")
+            super().__init__(application=app, title=cfgmod.APP_NAME)
             self.set_default_size(400, 460)
             self.busy = False
 
@@ -58,8 +62,9 @@ def main(cfg: cfgmod.Config) -> int:
                 valign=Gtk.Align.CENTER, vexpand=True,
                 margin_start=36, margin_end=36, margin_bottom=28,
             )
-            body.append(Gtk.Label(label="DIABLO IV", css_classes=["d4-title"]))
-            body.append(Gtk.Label(label="CACHYOS", css_classes=["d4-subtitle"]))
+            body.append(Gtk.Label(label="BATTLE.NET", css_classes=["d4-title"]))
+            body.append(Gtk.Label(label=cfgmod.distro(),
+                                  css_classes=["d4-subtitle"]))
 
             self.play = Gtk.Button(
                 css_classes=["suggested-action", "pill", "d4-play"], margin_top=18)
@@ -77,7 +82,8 @@ def main(cfg: cfgmod.Config) -> int:
             body.append(self.status)
 
             self.autoclose = Gtk.CheckButton(
-                label="Close this window once Battle.net is up",
+                label=f"Close this window {AUTOCLOSE_DELAY} seconds "
+                      "after Battle.net starts",
                 active=bool(cfg["close_gui_after_launch"]),
                 halign=Gtk.Align.CENTER, margin_top=10,
                 css_classes=["d4-check"],
@@ -180,7 +186,7 @@ def main(cfg: cfgmod.Config) -> int:
             total = sum(b.size() for b in spare) / 1024**3
             names = ", ".join(b.name for b in spare)
             self.say(f"Removable: {names} ({total:.1f} GiB). "
-                     f"Remove with: d4l proton remove <name>")
+                     f"Remove with: bnl proton remove <name>")
 
         # -- chrome ----------------------------------------------------
         def _menu(self):
@@ -284,9 +290,10 @@ def main(cfg: cfgmod.Config) -> int:
             if not battlenet.start_client(cfg):
                 return
             if cfg["close_gui_after_launch"]:
-                self.say("Battle.net is up — closing this window.")
+                self.say(f"Battle.net is up — closing in {AUTOCLOSE_DELAY}s.")
                 # Nothing here supervises the client, so quitting is safe.
-                GLib.timeout_add(1200, self.get_application().quit)
+                GLib.timeout_add(AUTOCLOSE_DELAY * 1000,
+                                 self.get_application().quit)
             else:
                 self.say("Battle.net is up — launch Diablo IV from there. "
                          "You can close this window; it won't stop anything.")
@@ -300,6 +307,7 @@ def main(cfg: cfgmod.Config) -> int:
         )
         Window(app).present()
 
-    app = Adw.Application(application_id="io.github.d4launcher.D4Launcher")
+    app = Adw.Application(
+        application_id="io.github.battlenetlauncher4linux.Launcher")
     app.connect("activate", on_activate)
     return app.run([])
