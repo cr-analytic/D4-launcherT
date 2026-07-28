@@ -139,8 +139,8 @@ def main(cfg: cfgmod.Config) -> int:
             chosen = self.proton_values[index]
             if chosen == cfg["proton"]:
                 return
-            if (procs.is_running(procs.GAME, cfg.prefix)
-                    or procs.is_running(procs.BNET, cfg.prefix)):
+            if (procs.is_running_anywhere(procs.GAME)
+                    or procs.is_running_anywhere(procs.BNET)):
                 self.say("Close the game and Battle.net before switching Proton.")
                 # Revert on the next main-loop pass: replacing the model from
                 # inside its own notify::selected emission crashes GTK.

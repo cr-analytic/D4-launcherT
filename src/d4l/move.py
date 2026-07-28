@@ -86,7 +86,9 @@ def relocate(cfg: Config, destination: str) -> int:
         raise RuntimeError_("Destination is inside the current location.")
 
     for name in (procs.GAME, procs.BNET):
-        if procs.is_running(name, cfg.prefix):
+        # Tolerant: if something of this name is alive at all, refuse.
+        # Moving 90 GB out from under a running game is unrecoverable.
+        if procs.is_running_anywhere(name):
             raise RuntimeError_(
                 "Diablo IV or Battle.net is still running. Close it first:\n"
                 "  d4l stop --all"

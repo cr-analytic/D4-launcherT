@@ -67,12 +67,31 @@ def in_prefix(pid: int, prefix) -> bool:
     env = _environ(pid)
     if env is None:
         return False
-    target = str(prefix).rstrip("/")
+    # Compare resolved paths: the prefix may be reached through a symlink or
+    # bind mount on one side and not the other, and umu leaves a `pfx -> .`
+    # inside the prefix that shows up in some of these variables.
+    target = os.path.realpath(str(prefix)).rstrip("/")
     for var in PREFIX_VARS:
-        value = (env.get(var) or "").rstrip("/")
-        if value and (value == target or value.startswith(target + "/")):
-            return True
+        raw = env.get(var)
+        if not raw:
+            continue
+        for value in (raw.rstrip("/"), os.path.realpath(raw).rstrip("/")):
+            if value == target or value.startswith(target + "/"):
+                return True
     return False
+
+
+def is_running_anywhere(name: str) -> bool:
+    """Whether any process of this name exists, in any prefix.
+
+    Detection is deliberately more forgiving than termination. Proton runs
+    the game inside a container and /proc/<pid>/environ is not always
+    readable or meaningful, so a client we cannot attribute may still be
+    ours — and starting a second one, or relaunching over a running game,
+    is worse than briefly considering someone else's process. Anything that
+    *kills* still demands positive attribution.
+    """
+    return bool(pids_named(name))
 
 
 def pids_named(name: str, prefix=None) -> list[int]:

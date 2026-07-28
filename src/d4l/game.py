@@ -17,7 +17,7 @@ def play(cfg: Config, verbose: bool = False, wait: bool = True) -> int:
         log.error("Battle.net isn't installed yet. Run `d4l setup` first.")
         return 1
 
-    if procs.is_running(procs.GAME, cfg.prefix):
+    if procs.is_running_anywhere(procs.GAME):
         log.info("Diablo IV is already running.")
         return 0
 
@@ -46,7 +46,7 @@ def play(cfg: Config, verbose: bool = False, wait: bool = True) -> int:
         killed = procs.terminate(prefix=cfg.prefix)
         if killed:
             log.info("Closed Battle.net.")
-    elif procs.is_running(procs.BNET, cfg.prefix):
+    elif procs.is_running_anywhere(procs.BNET):
         log.info("Battle.net is still open — close it yourself, or `d4l stop`.")
     return 0
 
@@ -60,8 +60,11 @@ def status(cfg: Config) -> dict:
         "battlenet_installed": cfg.bnet_exe.exists(),
         "game_installed": exe is not None,
         "game_path": str(exe) if exe else None,
-        "battlenet_running": procs.is_running(procs.BNET, cfg.prefix),
-        "game_running": procs.is_running(procs.GAME, cfg.prefix),
+        # Tolerant on purpose — see procs.is_running_anywhere. The GUI drives
+        # its Play button off this, and showing "Play" while the game is up
+        # invites relaunching over a running game.
+        "battlenet_running": procs.is_running_anywhere(procs.BNET),
+        "game_running": procs.is_running_anywhere(procs.GAME),
     }
 
 

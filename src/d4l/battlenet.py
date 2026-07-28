@@ -138,6 +138,13 @@ def start_client(cfg: Config, verbose: bool = False, timeout: float = 180.0) -> 
         log.info("Battle.net is already running.")
         return True
 
+    # A client we can't attribute is still a client. Starting a second one on
+    # top of it is how duplicate Battle.net windows appear.
+    if procs.is_running_anywhere(procs.BNET):
+        log.warn("Battle.net is running but couldn't be tied to this prefix — "
+                 "using it rather than starting another. `d4l ps` shows why.")
+        return True
+
     if not cfg.bnet_exe.exists():
         raise runtime.RuntimeError_(
             "Battle.net is not installed yet. Run `d4l setup` first."
@@ -148,6 +155,10 @@ def start_client(cfg: Config, verbose: bool = False, timeout: float = 180.0) -> 
                 log=cfg.game_dir / "battlenet.log")
 
     if not procs.wait_for(procs.BNET, timeout=timeout, prefix=cfg.prefix):
+        if procs.is_running_anywhere(procs.BNET):
+            log.warn("Battle.net started but couldn't be tied to this prefix; "
+                     "continuing. `d4l ps` shows why.")
+            return True
         log.error("Battle.net did not start within "
                   f"{int(timeout)}s. See `d4l logs`.")
         return False
@@ -156,7 +167,8 @@ def start_client(cfg: Config, verbose: bool = False, timeout: float = 180.0) -> 
     # UI is Chromium-based and only becomes interactive once its helper
     # renderer processes are up. Waiting for those is what makes the
     # subsequent `--exec launch` reliable.
-    if procs.wait_for(procs.BNET_HELPER, timeout=90, prefix=cfg.prefix):
+    if (procs.wait_for(procs.BNET_HELPER, timeout=30, prefix=cfg.prefix)
+            or procs.is_running_anywhere(procs.BNET_HELPER)):
         log.info("Battle.net is up.")
     else:
         log.warn("Battle.net UI helpers not detected; continuing anyway.")
@@ -199,7 +211,7 @@ def launch_game(cfg: Config, product: str = D4_PRODUCT, verbose: bool = False,
         # that is gone does not forward anything — it launches a whole new
         # Battle.net. Retrying blindly therefore resurrects a client the user
         # just closed, and closing it again simply triggers the next retry.
-        if attempt > 1 and not procs.is_running(procs.BNET, cfg.prefix):
+        if attempt > 1 and not procs.is_running_anywhere(procs.BNET):
             log.error(
                 "Battle.net is no longer running, so there is nothing to send "
                 "the launch command to — stopping instead of starting it "
@@ -219,7 +231,7 @@ def launch_game(cfg: Config, product: str = D4_PRODUCT, verbose: bool = False,
         # The game may be up but not attributable to our prefix — Proton runs
         # it inside a container and the environment isn't always visible.
         # Detecting it by name is still better than relaunching on top of it.
-        if procs.is_running(procs.GAME):
+        if procs.is_running_anywhere(procs.GAME):
             log.warn("Diablo IV is running, but couldn't be tied to this "
                      "prefix — skipping automatic cleanup when it exits.")
             return True
