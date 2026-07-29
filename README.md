@@ -168,6 +168,9 @@ its own just points the launcher at an empty directory (and a subsequent
 bnl move /mnt/games/diablo4
 ```
 
+Or use **Move install…** in the launcher menu, which does the same thing with
+a progress bar and replaces it with a completion message when it finishes.
+
 This carries the game, the Wine prefix and your Battle.net login across in one
 piece — no re-download, no logging in again. On the same filesystem it's an
 instant rename. Across disks it copies, verifies Battle.net is present at the

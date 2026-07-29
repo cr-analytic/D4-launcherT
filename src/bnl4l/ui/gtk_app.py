@@ -13,7 +13,8 @@ import sys
 import threading
 from pathlib import Path
 
-from .. import battlenet, config as cfgmod, doctor, game, log, procs, proton, runtime
+from .. import (battlenet, config as cfgmod, doctor, game, log, move, procs,
+                proton, runtime)
 
 # Diablo IV is roughly 90 GB installed; leave headroom for patches and the
 # shader cache before calling a drive big enough.
@@ -87,6 +88,12 @@ def main(cfg: cfgmod.Config) -> int:
                 ellipsize=Pango.EllipsizeMode.END, margin_top=2,
             )
             body.append(self.status)
+
+            # Shown only while a move is running; replaced by a plain
+            # completion message afterwards.
+            self.progress = Gtk.ProgressBar(show_text=True, visible=False,
+                                            margin_top=10)
+            body.append(self.progress)
 
             self.location_box = self._location_row()
             body.append(self.location_box)
@@ -207,6 +214,60 @@ def main(cfg: cfgmod.Config) -> int:
             cfg.save()
             return True
 
+        # -- moving an existing install --------------------------------
+        def on_move_install(self):
+            """Pick a destination, then move the install there with progress.
+
+            Runs on the UI thread: the file dialog must, and the copy is
+            handed to a worker once a folder is chosen.
+            """
+            if not game.status(cfg)["battlenet_installed"]:
+                self.say("Nothing installed to move yet.")
+                return
+            if self.busy:
+                return
+            try:
+                dialog = Gtk.FileDialog(title="Move the install to…")
+            except (AttributeError, TypeError):
+                self.say("This GTK is too old for the picker — use: bnl move <dir>")
+                return
+
+            start = cfg.game_dir.parent if cfg.game_dir.parent.is_dir() else Path.home()
+            dialog.set_initial_folder(Gio.File.new_for_path(str(start)))
+
+            def chosen(dlg, result):
+                try:
+                    folder = dlg.select_folder_finish(result)
+                except GLib.Error:
+                    return  # cancelled
+                if not folder or not folder.get_path():
+                    return
+                target = Path(folder.get_path())
+                if target.name.lower() not in ("diablo4", "diablo-iv"):
+                    target = target / "diablo4"
+                self.run_bg(lambda: self._do_move(target))
+
+            dialog.select_folder(self, None, chosen)
+
+        def _set_progress(self, fraction):
+            self.progress.set_visible(True)
+            self.progress.set_fraction(fraction)
+            self.progress.set_text(f"{fraction * 100:.0f}%")
+            return False
+
+        def _do_move(self, dest):
+            source = cfg.game_dir
+            GLib.idle_add(self._set_progress, 0.0)
+            try:
+                move.relocate(cfg, str(dest),
+                              progress=lambda f: GLib.idle_add(self._set_progress, f))
+            finally:
+                # The bar is transient: on success the completion message
+                # takes its place, on failure run_bg reports the error.
+                GLib.idle_add(self.progress.set_visible, False)
+            self.say(f"Move complete — now at {dest}. The old copy is still at "
+                     f"{source}; delete it once you're happy.")
+
         # -- Proton picker ---------------------------------------------
         def _proton_picker(self):
             """Proton version is the usual cause of Battle.net/D4 breakage, so
@@ -302,22 +363,29 @@ def main(cfg: cfgmod.Config) -> int:
             # button brings up Battle.net and stops.
             menu.append("Launch Diablo IV too", "win.playgame")
             menu.append("Install / repair game", "win.installgame")
+            menu.append("Move install…", "win.moveinstall")
             menu.append("Refresh Proton list", "win.refreshproton")
             menu.append("Unused Proton builds…", "win.cleanproton")
             menu.append("Stop everything", "win.stop")
             menu.append("Run diagnostics", "win.doctor")
 
-            for name, fn in (
-                ("playgame", lambda: game.play(cfg, wait=False)),
-                ("installgame", lambda: battlenet.install_game(cfg)),
-                ("refreshproton", self._refresh_protons),
-                ("cleanproton", self._cleanup_protons),
+            # `direct` actions run on the UI thread — a file dialog has to.
+            # Everything else goes to a worker so the window stays alive.
+            for name, fn, direct in (
+                ("playgame", lambda: game.play(cfg, wait=False), False),
+                ("installgame", lambda: battlenet.install_game(cfg), False),
+                ("moveinstall", self.on_move_install, True),
+                ("refreshproton", self._refresh_protons, False),
+                ("cleanproton", self._cleanup_protons, False),
                 ("stop", lambda: procs.terminate(procs.LEFTOVERS + (procs.GAME,),
-                                                prefix=cfg.prefix)),
-                ("doctor", self._doctor),
+                                                 prefix=cfg.prefix), False),
+                ("doctor", self._doctor, False),
             ):
                 action = Gio.SimpleAction.new(name, None)
-                action.connect("activate", lambda a, p, fn=fn: self.run_bg(fn))
+                if direct:
+                    action.connect("activate", lambda a, p, fn=fn: fn())
+                else:
+                    action.connect("activate", lambda a, p, fn=fn: self.run_bg(fn))
                 self.add_action(action)
 
             return Gtk.MenuButton(icon_name="open-menu-symbolic", menu_model=menu)

@@ -9,6 +9,7 @@ the user removes it once the new location is proven to work.
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -54,25 +55,61 @@ def _same_filesystem(a: Path, b: Path) -> bool:
         return False
 
 
-def _copy(src: Path, dest: Path) -> None:
-    """Copy the tree, preserving symlinks, hardlinks and attributes."""
+_PERCENT = re.compile(r"(\d{1,3})%")
+
+
+def _copy(src: Path, dest: Path, progress=None) -> None:
+    """Copy the tree, preserving symlinks, hardlinks and attributes.
+
+    `progress` is called with a 0.0–1.0 fraction. When it is None, rsync's
+    own output is left going to the terminal, which is what the CLI wants;
+    supplying a callback captures that output and parses it instead.
+    """
     dest.mkdir(parents=True, exist_ok=True)
     rsync = shutil.which("rsync")
     if rsync:
         # -a keeps symlinks as symlinks, so `pfx -> .` is copied rather than
-        # followed. --info=progress2 gives a single overall progress line.
-        result = subprocess.run(
-            [rsync, "-aHAX", "--info=progress2", f"{src}/", f"{dest}/"]
-        )
-        if result.returncode != 0:
-            raise RuntimeError_(f"rsync failed (exit {result.returncode}).")
+        # followed. --info=progress2 gives one overall progress line.
+        cmd = [rsync, "-aHAX", "--info=progress2", f"{src}/", f"{dest}/"]
+        if progress is None:
+            code = subprocess.run(cmd).returncode
+        else:
+            code = _copy_with_progress(cmd, progress)
+        if code != 0:
+            raise RuntimeError_(f"rsync failed (exit {code}).")
+        if progress:
+            # rsync's overall percentage habitually stops a point or two
+            # short; close it out so the bar reads as finished.
+            progress(1.0)
         return
 
     log.warn("rsync not found; copying with Python (no progress shown).")
     shutil.copytree(src, dest, symlinks=True, dirs_exist_ok=True)
 
 
-def relocate(cfg: Config, destination: str) -> int:
+def _copy_with_progress(cmd, progress) -> int:
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                            stderr=subprocess.STDOUT, text=True)
+    buffer = ""
+    try:
+        while True:
+            chunk = proc.stdout.read(128)
+            if not chunk:
+                break
+            buffer += chunk
+            # rsync redraws its progress line with \r, not \n.
+            parts = re.split(r"[\r\n]", buffer)
+            buffer = parts.pop()
+            for line in parts:
+                found = _PERCENT.search(line)
+                if found:
+                    progress(min(int(found.group(1)), 100) / 100)
+    finally:
+        proc.stdout.close()
+    return proc.wait()
+
+
+def relocate(cfg: Config, destination: str, progress=None) -> int:
     src = cfg.game_dir
     dest = Path(os.path.expanduser(str(destination))).absolute()
     # Don't resolve() the whole path: it may not exist yet.
@@ -120,9 +157,11 @@ def relocate(cfg: Config, destination: str) -> int:
         log.info("Same filesystem — renaming (instant).")
         dest.parent.mkdir(parents=True, exist_ok=True)
         os.rename(src, dest)
+        if progress:
+            progress(1.0)
     else:
         log.info("Copying… (the game itself is most of this)")
-        _copy(src, dest)
+        _copy(src, dest, progress=progress)
 
     cfg["game_dir"] = str(dest)
     cfg.save()
