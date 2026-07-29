@@ -26,12 +26,13 @@ The installer checks your dependencies (offering to `pacman -S` anything
 missing), installs the launcher into `~/.local`, adds the desktop entries, and
 then offers to run first-time setup.
 
-Setup creates the Wine prefix, downloads the official Battle.net installer from
-Blizzard, and opens Battle.net so you can log in. The launcher window shows an
-**install location** box before anything is installed — set it to whichever
-drive has room (it reports free space as you type, and Diablo IV wants about
-120 GB) and the game, prefix and login all land there. Getting this right up
-front saves moving 90 GB later. **Tick "Remember my
+Before anything is installed, the launcher window shows an **install location**
+box. Point it at whichever drive has room — it reports free space as you type,
+and Diablo IV wants about 120 GB — and the game, the Wine prefix and your login
+all land there. Getting this right up front saves relocating 90 GB afterwards.
+
+Setup then creates the prefix, downloads the official Battle.net installer from
+Blizzard, and opens Battle.net so you can log in. **Tick "Remember my
 account"** — that is the one and only time you need to do this. Then install
 Diablo IV through Battle.net as usual.
 
