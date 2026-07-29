@@ -7,10 +7,17 @@ and point at the CLI rather than failing with a traceback.
 
 from __future__ import annotations
 
+import os
+import shutil
 import sys
 import threading
+from pathlib import Path
 
 from .. import battlenet, config as cfgmod, doctor, game, log, procs, proton, runtime
+
+# Diablo IV is roughly 90 GB installed; leave headroom for patches and the
+# shader cache before calling a drive big enough.
+NEEDED_GIB = 120
 
 CSS = b"""
 .d4-title    { font-size: 30px; font-weight: 800; letter-spacing: 5px; }
@@ -81,6 +88,9 @@ def main(cfg: cfgmod.Config) -> int:
             )
             body.append(self.status)
 
+            self.location_box = self._location_row()
+            body.append(self.location_box)
+
             self.autoclose = Gtk.CheckButton(
                 label=f"Close this window {AUTOCLOSE_DELAY} seconds "
                       "after Battle.net starts",
@@ -99,6 +109,103 @@ def main(cfg: cfgmod.Config) -> int:
             self.refresh()
             # Keep the button honest if the game is started or closed elsewhere.
             GLib.timeout_add_seconds(3, self.refresh)
+
+        # -- install location ------------------------------------------
+        def _location_row(self):
+            """Where the ~90 GB goes. Shown only before anything is installed.
+
+            Choosing the drive here is the whole point: afterwards the game,
+            the prefix and the login all live under this path, and changing
+            it means physically moving them (`bnl move`).
+            """
+            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5,
+                          margin_top=18)
+            box.append(Gtk.Label(label="INSTALL LOCATION",
+                                 css_classes=["d4-proton"],
+                                 halign=Gtk.Align.CENTER))
+
+            row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+            self.location = Gtk.Entry(hexpand=True, text=str(cfg.game_dir))
+            # Only ever read in refresh(), never written — otherwise the
+            # three-second poll would fight whatever is being typed.
+            self.location.connect("changed", lambda *_: self._update_space())
+            row.append(self.location)
+
+            browse = Gtk.Button(icon_name="folder-open-symbolic",
+                                tooltip_text="Choose a folder")
+            browse.connect("clicked", self.on_browse)
+            row.append(browse)
+            box.append(row)
+
+            self.space = Gtk.Label(css_classes=["d4-status"], wrap=True)
+            box.append(self.space)
+            self._update_space()
+            return box
+
+        def _update_space(self):
+            text = self.location.get_text().strip() or "~"
+            path = Path(os.path.expanduser(text))
+            probe = path
+            while not probe.exists() and probe != probe.parent:
+                probe = probe.parent
+            try:
+                free = shutil.disk_usage(probe).free / 1024**3
+            except OSError:
+                self.space.set_text("Can't read that path.")
+                return
+            if free >= NEEDED_GIB:
+                self.space.set_text(f"{free:.0f} GiB free — room for Diablo IV")
+            else:
+                self.space.set_text(
+                    f"{free:.0f} GiB free — Diablo IV wants about {NEEDED_GIB} GiB")
+
+        def on_browse(self, _button):
+            try:
+                dialog = Gtk.FileDialog(title="Where should the game go?")
+            except (AttributeError, TypeError):
+                self.say("Type the path — this GTK is too old for the picker.")
+                return
+            start = Path(os.path.expanduser(self.location.get_text().strip() or "~"))
+            while not start.is_dir() and start != start.parent:
+                start = start.parent
+            dialog.set_initial_folder(Gio.File.new_for_path(str(start)))
+
+            def chosen(dlg, result):
+                try:
+                    folder = dlg.select_folder_finish(result)
+                except GLib.Error:
+                    return  # cancelled
+                if folder and folder.get_path():
+                    # A bare drive root is rarely what's wanted; keep the
+                    # install in its own directory.
+                    picked = Path(folder.get_path())
+                    if picked.name.lower() not in ("diablo4", "diablo-iv"):
+                        picked = picked / "diablo4"
+                    self.location.set_text(str(picked))
+
+            dialog.select_folder(self, None, chosen)
+
+        def _apply_location(self) -> bool:
+            """Persist the chosen path before setup runs. False if unusable."""
+            text = self.location.get_text().strip()
+            if not text:
+                return True
+            path = Path(os.path.expanduser(text)).absolute()
+            # Actually create it and write a file, rather than asking
+            # os.access: permission bits say nothing about read-only mounts
+            # or filesystems that refuse directories, and for root they
+            # always say yes. Setup would create this directory anyway.
+            try:
+                path.mkdir(parents=True, exist_ok=True)
+                probe = path / ".bnl-write-test"
+                probe.touch()
+                probe.unlink()
+            except OSError as exc:
+                self.say(f"Can't use {path}: {exc.strerror or exc}.")
+                return False
+            cfg["game_dir"] = str(path)
+            cfg.save()
+            return True
 
         # -- Proton picker ---------------------------------------------
         def _proton_picker(self):
@@ -234,6 +341,9 @@ def main(cfg: cfgmod.Config) -> int:
                 label, sensitive = "Launch Battle.net", True
             self.play.set_label(label)
             self.play.set_sensitive(sensitive)
+            # The path is only editable while there is nothing installed at
+            # it; afterwards moving is a filesystem operation, not a setting.
+            self.location_box.set_visible(not st["battlenet_installed"])
             if not st["umu"] and not self.status.get_label():
                 self.say("umu-launcher is missing — sudo pacman -S umu-launcher")
             return True
@@ -278,6 +388,8 @@ def main(cfg: cfgmod.Config) -> int:
             what happens next.
             """
             if not game.status(cfg)["battlenet_installed"]:
+                if not self._apply_location():
+                    return
                 self.run_bg(lambda: battlenet.install(cfg))
             else:
                 self.run_bg(lambda: self._open_battlenet())
