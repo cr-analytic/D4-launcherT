@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=pinwatch
+GenericName=12VHPWR Load Monitor
+Comment=Live 12VHPWR connector current and per-pin load for NVIDIA GPUs
+Exec=pinwatch
+Terminal=false
+Categories=System;Monitor;
+Keywords=gpu;power;nvidia;12vhpwr;monitor;
