@@ -6,6 +6,11 @@ PREFIX="${PREFIX:-$HOME/.local}"
 LIB_DIR="$PREFIX/share/battlenet-launcher4linux"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/battlenet-launcher4linux"
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/battlenet-launcher4linux"
+# Pre-rename locations. Settings are copied out of the old config directory
+# on first run rather than moved, so the original is still here and has to
+# be cleaned up too.
+LEGACY_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/d4-launcher"
+LEGACY_STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/d4-launcher"
 
 info() { printf '\033[32m==>\033[0m %s\n' "$*"; }
 
@@ -21,7 +26,7 @@ fi
 [[ -z "$GAME_DIR" ]] && GAME_DIR="$HOME/Games/diablo4"
 
 info "Removing the launcher"
-rm -rf "$LIB_DIR" "$STATE_DIR"
+rm -rf "$LIB_DIR" "$STATE_DIR" "$LEGACY_STATE_DIR"
 rm -f "$PREFIX/bin/bnl" "$PREFIX/bin/d4l" \
       "$PREFIX/share/applications/battlenet-launcher4linux.desktop" \
       "$PREFIX/share/applications/d4-launcher.desktop" \
@@ -35,7 +40,11 @@ command -v update-desktop-database >/dev/null && \
 
 echo
 read -rp "Also delete settings ($CONFIG_DIR)? [y/N] " reply
-[[ ${reply:-N} =~ ^[Yy]$ ]] && rm -rf "$CONFIG_DIR" && info "Settings removed."
+if [[ ${reply:-N} =~ ^[Yy]$ ]]; then
+    # Both, or the pre-rename copy is left orphaned in ~/.config.
+    rm -rf "$CONFIG_DIR" "$LEGACY_CONFIG_DIR"
+    info "Settings removed."
+fi
 
 echo
 echo "The game and its Wine prefix are still on disk:"
